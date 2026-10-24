@@ -10,7 +10,7 @@
 
 **上游权益与项目身份：** Android 手机基于 [PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus)（[GPL-3.0](apps/mobile/LICENSE)），电视基于 [NeoBV](https://github.com/b1ackmarket/NeoBV)（[MIT](apps/tv/LICENSE)）。**dcelysia 是本改版维护者，并非全部原始代码的作者。** 原版权头、署名、LICENSE 与 AUTHORS 均保留；其他组件适用各自许可证，见[开源说明](apps/harmony/entry/src/main/resources/rawfile/NOTICE.md)和[固定来源记录](sources.lock.json)。本项目独立开发，与哔哩哔哩官方无关，开源许可不授予其内容、接口或商标授权。
 
-鸿蒙端已迁移为 ArkTS / ArkUI 原生实现，当前源码版本 **1.0.2（8）**，默认包名 `com.dcelysia.yueying`。Android 手机继续使用 Flutter，电视继续使用 Android 原生实现；鸿蒙构建不再依赖 Flutter-OH。AppTest 的审核、可安装范围与状态以华为后台实际发布记录为准，源码更新不等于测试包已生效。
+鸿蒙端已迁移为 ArkTS / ArkUI 原生实现，当前源码版本 **1.0.2（9）**，默认包名 `com.dcelysia.yueying`。Android 手机继续使用 Flutter，电视继续使用 Android 原生实现；鸿蒙构建不再依赖 Flutter-OH。AppTest 的审核、可安装范围与状态以华为后台实际发布记录为准，源码更新不等于测试包已生效。
 
 ## 一套电视状态，多部手机接力
 

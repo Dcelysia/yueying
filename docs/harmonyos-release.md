@@ -2,7 +2,7 @@
 
 ## 当前实现
 
-鸿蒙入口是 [`apps/harmony`](../apps/harmony)，使用 ArkTS / ArkUI / UIDesignKit，最低 HarmonyOS 7 / API 26。版本 1.0.2（8），默认包名 `com.dcelysia.yueying`。Android 手机继续使用 Flutter；两种手机端使用同一电视遥控协议，但原生鸿蒙不再加载 Dart/Flutter-OH。
+鸿蒙入口是 [`apps/harmony`](../apps/harmony)，使用 ArkTS / ArkUI / UIDesignKit，最低 HarmonyOS 7 / API 26。版本 1.0.2（9），默认包名 `com.dcelysia.yueying`。Android 手机继续使用 Flutter；两种手机端使用同一电视遥控协议，但原生鸿蒙不再加载 Dart/Flutter-OH。
 
 手机提供浏览、可选 B站扫码登录、收藏、历史、动态、分享链接接收与电视控制。手机不在本地播放、下载或中转媒体流；独立电视端使用自己的账号获取并播放视频。来源标注、外部打开入口与开源许可均不代表获得第三方平台、内容或商标授权，审核通过也不代替相关授权。
 
@@ -19,7 +19,7 @@
 
 当前原生模块申请 `ohos.permission.INTERNET` 和 `ohos.permission.GET_NETWORK_INFO`，用于 B站请求、图片请求和局域网连接/网络状态能力。没有申请相机、麦克风、定位、通讯录等权限；二维码由 B站客户端扫码，不是本应用调用相机。
 
-内置隐私政策与用户协议模板位于 `apps/harmony/entry/src/main/resources/rawfile/`。同意前不启动浏览、发现或自动重连。真实运营者、联系邮箱和公开政策地址必须由实际发布者填写；不能借用他人身份。政策可使用华为的隐私声明托管服务，最终链接应与审核资料和实际应用一致。
+内置隐私政策与用户协议模板位于 `apps/harmony/entry/src/main/resources/rawfile/`。同意前不启动浏览、发现或自动重连。选择华为隐私托管时，应用通过 AppGalleryKit 查询系统返回的政策 URL，并逐条校验当前 ID、版本及 FULL_MODE_AGREED；系统变更或拒绝同意时停止服务。托管模式不重复显示本地首次同意页，内置用户协议仅供阅读，不伪造系统同意记录。明确不支持托管的开发环境才保留本地离线同意；已知托管服务失败时不降级。应用返回前台会做一次轻量授权复核，撤回失败会阻断服务并支持重试。真实运营者、联系邮箱和公开政策地址必须由实际发布者填写；不能借用他人身份。政策可使用华为的隐私声明托管服务，最终链接应与审核资料和实际应用一致。
 
 本机私有元数据 JSON 示例（不要把真实资料提交到仓库）：
 

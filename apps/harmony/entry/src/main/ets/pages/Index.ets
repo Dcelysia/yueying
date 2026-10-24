@@ -14,6 +14,8 @@ import { TelevisionDiscovery, DiscoveredTelevision } from '../services/Televisio
 import { sharedVideo } from '../services/SharedVideo';
 import { window } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
+import { privacyManager } from '@kit.AppGalleryKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 
 interface SharedVideoPayload { id: string; text: string }
 
@@ -46,11 +48,23 @@ struct Index {
   private lastShareId: string = '';
   private shareGeneration: number = 0;
   private readonly volumeKeyListener = (direction: number): void => { if (this.consent) this.television.adjustVolume(direction); };
-  private readonly foregroundListener = (foreground: boolean): void => { this.television.setForeground(foreground); if (!foreground) { clearTimeout(this.volumeFeedbackTimer); this.volumeFeedbackVisible = false; } };
+  private readonly foregroundListener = (foreground: boolean): void => {
+    this.appForeground = foreground;
+    if (!foreground) { this.television.setForeground(false); clearTimeout(this.volumeFeedbackTimer); this.volumeFeedbackVisible = false; }
+    else if (this.connectionFormStore) this.checkPrivacyConsent(false);
+  };
   private readonly shareListener = (share: SharedVideoPayload): void => { this.receiveShare(share); };
   private api: BiliClient = new BiliClient();
   private television: TelevisionClient = new TelevisionClient();
   @State consent: boolean = false;
+  @State privacyMode: string = 'checking';
+  @State privacyChecking: boolean = false;
+  @State withdrawalPending: boolean = false;
+  private hostedPrivacyDetected: boolean = false;
+  private servicesInitialized: boolean = false;
+  private serviceInitialization?: Promise<void>;
+  private consentGeneration: number = 0;
+  private appForeground: boolean = true;
   @State consentDocument: string = '';
   @State account: Account | undefined = undefined;
   @State failedAvatarUrl: string = '';
@@ -96,28 +110,137 @@ struct Index {
     this.television.onError = (message: string) => { this.errorText = message; };
     try {
       const store = await preferences.getPreferences(this.getUIContext().getHostContext() as common.UIAbilityContext, { name: 'native_settings' });
-      const accepted = await store.get('consent', false) as boolean && await store.get('policyVersion', '') === '1.0.2-native';
-      if (accepted) await this.api.initialize(this.getUIContext().getHostContext() as common.UIAbilityContext);
-      this.consent = accepted;
-      if (accepted) { await this.television.initialize(context); context.eventHub.emit('pull-share'); }
       this.connectionFormStore = store;
-      this.address = this.television.address || await store.get('televisionAddress', this.address) as string;
-      this.manualIp = await store.get('manualIp', this.television.address.split(':')[0] || '') as string;
-      this.manualPort = await store.get('manualPort', this.television.address.split(':')[1] || '') as string;
+      this.hostedPrivacyDetected = await store.get('hostedPrivacyEnabled', false) as boolean;
+      this.address = await store.get('televisionAddress', this.address) as string;
+      this.manualIp = await store.get('manualIp', '') as string;
+      this.manualPort = await store.get('manualPort', '') as string;
+      this.withdrawalPending = await store.get('withdrawalPending', false) as boolean;
+      if (this.withdrawalPending) {
+        this.privacyMode = this.hostedPrivacyDetected ? 'hosted' : 'local'; this.errorText = '上次撤回未完成，请重试清除本机记录与撤回授权';
+      } else await this.checkPrivacyConsent(true);
     } catch (error) { this.errorText = '无法读取本地设置，请重试'; }
   }
   aboutToDisappear(): void {
-    ++this.shareGeneration; this.television.dispose(); this.discovery.stop(); clearTimeout(this.volumeFeedbackTimer);
+    ++this.consentGeneration; ++this.shareGeneration; this.television.dispose(); this.discovery.stop(); clearTimeout(this.volumeFeedbackTimer);
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
     context.eventHub.emit('remote-connected', false); context.eventHub.off('television-volume-key', this.volumeKeyListener);
     context.eventHub.off('foreground', this.foregroundListener); context.eventHub.off('shared-video', this.shareListener);
   }
-  private async acceptConsent(): Promise<void> {
+  // Only current platform agreement IDs and versions authorize hosted-mode processing.
+  private hostedAgreementsAccepted(info: privacyManager.AppPrivacyMgmtInfo, results: privacyManager.AppPrivacyResult[]): boolean {
+    const policies = info.privacyInfo.filter((link: privacyManager.AppPrivacyLink) => link.type === privacyManager.AppPrivacyLinkType.PRIVACY_STATEMENT_LINK || link.type === privacyManager.AppPrivacyLinkType.USER_AGREEMENT_LINK);
+    return policies.some((link: privacyManager.AppPrivacyLink) => link.type === privacyManager.AppPrivacyLinkType.PRIVACY_STATEMENT_LINK) &&
+      policies.every((link: privacyManager.AppPrivacyLink) => !!link.id && results.some((result: privacyManager.AppPrivacyResult) =>
+        result.type === (link.type === privacyManager.AppPrivacyLinkType.PRIVACY_STATEMENT_LINK ? privacyManager.AppPrivacyType.PRIVACY_AGREEMENT : privacyManager.AppPrivacyType.USER_AGREEMENT) &&
+        result.id === link.id && result.versionCode === link.versionCode && result.result === privacyManager.AppPrivacyResultType.FULL_MODE_AGREED));
+  }
+  private stopServicesForPrivacy(): void {
+    this.consent = false;
+    ++this.consentGeneration; ++this.shareGeneration; ++this.loadGeneration; ++this.detailGeneration;
+    this.pendingVideo = undefined; this.discovery.stop(); this.searching = false;
+    this.television.dispose(); this.servicesInitialized = false;
+    clearTimeout(this.volumeFeedbackTimer); this.volumeFeedbackVisible = false;
+    this.paths.clear(); this.screen = 'home';
+  }
+  private async initializeConsentedServices(): Promise<void> {
+    if (!this.appForeground) return;
+    if (this.servicesInitialized) {
+      this.consent = true; this.television.setForeground(true);
+      (this.getUIContext().getHostContext() as common.UIAbilityContext).eventHub.emit('pull-share'); return;
+    }
+    if (this.serviceInitialization) { await this.serviceInitialization; return; }
+    const generation = this.consentGeneration;
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    const initialization = (async (): Promise<void> => {
+      await this.api.initialize(context);
+      if (generation !== this.consentGeneration || !this.appForeground) return;
+      await this.television.initialize(context);
+      if (generation !== this.consentGeneration) { this.television.dispose(); return; }
+      this.servicesInitialized = true; this.consent = true;
+      this.television.setForeground(this.appForeground);
+      if (this.appForeground) context.eventHub.emit('pull-share');
+    })();
+    this.serviceInitialization = initialization;
+    try { await initialization; }
+    finally { if (this.serviceInitialization === initialization) this.serviceInitialization = undefined; }
+  }
+  private async checkLocalConsent(): Promise<void> {
+    this.privacyMode = 'local';
+    const store = this.connectionFormStore;
+    const accepted = !!store && await store.get('consent', false) as boolean && await store.get('policyVersion', '') === '1.0.2-native';
+    if (accepted) await this.initializeConsentedServices();
+    else if (this.consent || this.servicesInitialized) this.stopServicesForPrivacy();
+  }
+  private async checkPrivacyConsent(requestConsent: boolean): Promise<void> {
+    if (this.privacyChecking || this.withdrawalPending) return;
+    this.privacyChecking = true; this.errorText = '';
+    let hostedInfoRead = false;
     try {
-      const store = await preferences.getPreferences(this.getUIContext().getHostContext() as common.UIAbilityContext, { name: 'native_settings' });
-      await store.put('consent', true); await store.put('policyVersion', '1.0.2-native'); await store.flush(); await this.api.initialize(this.getUIContext().getHostContext() as common.UIAbilityContext); this.consent = true;
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext; await this.television.initialize(context); context.eventHub.emit('pull-share');
+      if (!this.connectionFormStore) {
+        this.connectionFormStore = await preferences.getPreferences(this.getUIContext().getHostContext() as common.UIAbilityContext, { name: 'native_settings' });
+        this.hostedPrivacyDetected = await this.connectionFormStore.get('hostedPrivacyEnabled', false) as boolean;
+        this.withdrawalPending = await this.connectionFormStore.get('withdrawalPending', false) as boolean;
+        if (this.withdrawalPending) { this.errorText = '上次撤回未完成，请重试清除本机记录与撤回授权'; return; }
+      }
+      if (!canIUse('SystemCapability.AppGalleryService.PrivacyManager')) {
+        if (this.hostedPrivacyDetected) throw new Error('Hosted privacy capability is temporarily unavailable');
+        await this.checkLocalConsent(); return;
+      }
+      const info = privacyManager.getAppPrivacyMgmtInfo();
+      if (info.type === privacyManager.AppPrivacyMgmtType.UNSUPPORTED) {
+        if (this.hostedPrivacyDetected) throw new Error('Hosted privacy service is temporarily unavailable');
+        await this.checkLocalConsent(); return;
+      }
+      if (info.type !== privacyManager.AppPrivacyMgmtType.FULL_MODE) throw new Error('Unsupported privacy management mode');
+      hostedInfoRead = true; this.hostedPrivacyDetected = true; this.privacyMode = 'hosted';
+      let results = privacyManager.getAppPrivacyResult();
+      const accepted = this.hostedAgreementsAccepted(info, results);
+      // Stop stale-policy services synchronously, before persisting mode or requesting a dialog.
+      if (!accepted && (this.consent || this.servicesInitialized)) this.stopServicesForPrivacy();
+      await this.connectionFormStore?.put('hostedPrivacyEnabled', true); await this.connectionFormStore?.flush();
+      if (!accepted && requestConsent) {
+        await privacyManager.requestAppPrivacyConsent(this.getUIContext().getHostContext() as common.UIAbilityContext);
+        results = privacyManager.getAppPrivacyResult();
+      }
+      // Re-read policy versions after the system dialog; never reuse a stale consent record.
+      const currentInfo = privacyManager.getAppPrivacyMgmtInfo();
+      if (currentInfo.type === privacyManager.AppPrivacyMgmtType.FULL_MODE && this.hostedAgreementsAccepted(currentInfo, results)) await this.initializeConsentedServices();
+      else { this.errorText = '尚未同意当前隐私声明，请通过系统授权继续或退出'; if (this.consent || this.servicesInitialized) this.stopServicesForPrivacy(); }
+    } catch (error) {
+      if (!hostedInfoRead && !this.hostedPrivacyDetected && ((error as BusinessError).code === 1006700003 || (error as BusinessError).code === 801)) {
+        try { await this.checkLocalConsent(); }
+        catch (localError) { this.errorText = '无法读取本机同意记录，请重试'; }
+      } else {
+        if (this.consent || this.servicesInitialized) this.stopServicesForPrivacy();
+        this.privacyMode = this.hostedPrivacyDetected ? 'hosted' : 'blocked';
+        this.errorText = '暂时无法确认隐私授权，请重试；确认前不会启动浏览或电视连接';
+      }
+    } finally { this.privacyChecking = false; }
+  }
+  private async acceptConsent(): Promise<void> {
+    if (this.privacyMode !== 'local' || this.privacyChecking) return;
+    this.privacyChecking = true;
+    try {
+      const store = this.connectionFormStore;
+      if (!store) throw new Error('Local settings are unavailable');
+      await store.put('consent', true); await store.put('policyVersion', '1.0.2-native'); await store.flush();
+      await this.initializeConsentedServices();
     } catch (error) { this.errorText = '无法保存选择，请重试'; }
+    finally { this.privacyChecking = false; }
+  }
+  private async openLegalDocument(document: string): Promise<void> {
+    if (document === 'privacy' && this.privacyMode !== 'local') {
+      try {
+        const info = privacyManager.getAppPrivacyMgmtInfo();
+        const link = info.privacyInfo.find((item: privacyManager.AppPrivacyLink) => item.type === privacyManager.AppPrivacyLinkType.PRIVACY_STATEMENT_LINK);
+        if (info.type !== privacyManager.AppPrivacyMgmtType.FULL_MODE || !link || !/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?(?:[/?#][^\s]*)?$/.test(link.url)) throw new Error('Hosted policy URL is unavailable');
+        await (this.getUIContext().getHostContext() as common.UIAbilityContext).startAbility({ action: 'ohos.want.action.viewData', uri: link.url });
+      } catch (error) { this.getUIContext().getPromptAction().showToast({ message: '暂时无法打开系统托管隐私声明，请稍后重试' }); }
+      return;
+    }
+    if (this.consent) this.openPage('legal', document);
+    else this.consentDocument = document;
   }
   private async openVideo(video: Video): Promise<void> {
     const generation = ++this.detailGeneration;
@@ -211,7 +334,7 @@ struct Index {
       } else if (name === 'images') {
         Swiper() { ForEach(param as string[], (image: string) => { Image(image).width('100%').height('100%').objectFit(ImageFit.Contain) }, (image: string) => image) }.width('100%').height('100%').cachedCount(1).backgroundColor('#15161C')
       } else if (name === 'about') {
-        AboutPane({ api: this.api, onWithdraw: () => { this.withdrawConsent(); }, onLegal: (document: string) => { this.openPage('legal', document); } })
+        AboutPane({ api: this.api, onWithdraw: () => { this.withdrawConsent(); }, onLegal: (document: string) => { this.openLegalDocument(document); } })
       }
       else if (name === 'legal') { LegalDocumentPane({ document: param as string }) }
       else if (name === 'search') {
@@ -267,10 +390,26 @@ struct Index {
     this.openPage(section);
   }
   private async withdrawConsent(): Promise<void> {
-    ++this.loadGeneration; ++this.detailGeneration; this.pendingVideo = undefined; this.discovery.stop(); await this.television.clearSaved();
-    await this.api.logout(); await this.api.clearSearchHistory();
-    const store = await preferences.getPreferences(this.getUIContext().getHostContext() as common.UIAbilityContext, { name: 'native_settings' });
-    await store.clear(); await store.flush(); this.paths.clear(); this.screen = 'home'; this.consent = false;
+    if (this.privacyChecking) return;
+    const hosted = this.hostedPrivacyDetected;
+    this.withdrawalPending = true; this.privacyChecking = true; this.stopServicesForPrivacy();
+    try {
+      const store = this.connectionFormStore || await preferences.getPreferences(this.getUIContext().getHostContext() as common.UIAbilityContext, { name: 'native_settings' });
+      await store.put('withdrawalPending', true); await store.flush();
+      await this.television.clearSaved(); await this.api.logout(); await this.api.clearSearchHistory();
+      await store.clear();
+      // Only non-identifying privacy-flow flags remain while system withdrawal is pending.
+      await store.put('withdrawalPending', true);
+      if (hosted) await store.put('hostedPrivacyEnabled', true);
+      await store.flush();
+      this.manualIp = ''; this.manualPort = ''; this.address = '192.168.5.228:9838'; this.savedAddress = ''; this.televisionName = '';
+      this.hasSavedTelevision = false; this.reconnectEnabled = false; this.pendingAccountSection = ''; this.lastShareId = ''; this.details = undefined;
+      if (hosted) { privacyManager.disableService(); this.privacyMode = 'hosted'; }
+      else this.privacyMode = 'local';
+      await store.delete('withdrawalPending'); await store.flush();
+      this.withdrawalPending = false; this.errorText = '';
+    } catch (error) { this.errorText = '撤回操作未能全部完成，请重试；浏览与电视连接已停止'; }
+    finally { this.privacyChecking = false; }
   }
   @Builder
   detailsPage() {
@@ -404,6 +543,19 @@ struct Index {
           }.width('100%').padding(12)
           LegalDocumentPane({ document: this.consentDocument }).layoutWeight(1)
         }.height('100%').width('100%')
+      } else if (this.withdrawalPending || this.privacyMode !== 'local') {
+        Column({ space: 20 }) {
+          Text('跃映').fontSize(28).fontWeight(FontWeight.Bold)
+          if (this.privacyChecking) { LoadingProgress().width(40).height(40) }
+          Text(this.withdrawalPending ? '正在处理撤回同意' : this.privacyChecking ? '正在确认系统隐私授权…' : '请完成系统隐私授权后继续').fontSize(16).fontColor('#777777')
+          if (this.errorText) { Text(this.errorText).fontSize(14).fontColor('#D8353F').lineHeight(23) }
+          Button(this.withdrawalPending ? '重试撤回并清除记录' : '重试系统隐私授权').backgroundColor('#D8353F').enabled(!this.privacyChecking).onClick(() => { if (this.withdrawalPending) this.withdrawConsent(); else this.checkPrivacyConsent(true); })
+          Row({ space: 12 }) {
+            Button('隐私声明').fontColor('#D8353F').backgroundColor(Color.Transparent).onClick(() => { this.openLegalDocument('privacy'); })
+            Button('用户协议').fontColor('#D8353F').backgroundColor(Color.Transparent).onClick(() => { this.openLegalDocument('terms'); })
+          }
+          Button('退出').fontColor('#777777').backgroundColor(Color.Transparent).onClick(() => { (this.getUIContext().getHostContext() as common.UIAbilityContext).terminateSelf(); })
+        }.padding(24).width('100%').height('100%').justifyContent(FlexAlign.Center)
       } else {
       Column({ space: 24 }) {
         Text('欢迎使用跃映').fontSize(28).fontWeight(FontWeight.Bold)
@@ -411,10 +563,10 @@ struct Index {
         Text('同意后，浏览和搜索会访问 B站服务；连接电视会访问你指定的局域网地址并同步播放状态。可选扫码登录后，登录凭据、搜索历史和电视地址保存在本机应用私有目录。手机不播放视频，也不向电视发送 B站登录凭据。').fontSize(16).lineHeight(26)
         Text('本项目基于 PiliPlus / NeoBV 二次开发，保留原作者权益。当前浏览代码按 GPL-3.0 提供源码。').fontSize(13).fontColor('#777777')
         Row({ space: 12 }) {
-          Button('隐私政策').fontColor('#D8353F').backgroundColor(Color.Transparent).onClick(() => { this.consentDocument = 'privacy'; })
-          Button('用户协议').fontColor('#D8353F').backgroundColor(Color.Transparent).onClick(() => { this.consentDocument = 'terms'; })
+          Button('隐私政策').fontColor('#D8353F').backgroundColor(Color.Transparent).onClick(() => { this.openLegalDocument('privacy'); })
+          Button('用户协议').fontColor('#D8353F').backgroundColor(Color.Transparent).onClick(() => { this.openLegalDocument('terms'); })
         }
-        Button('同意隐私政策及用户协议并继续').backgroundColor('#D8353F').onClick(() => { this.acceptConsent(); })
+        Button('同意隐私政策及用户协议并继续').backgroundColor('#D8353F').enabled(!this.privacyChecking).onClick(() => { this.acceptConsent(); })
         Button('不同意并退出').fontColor('#777777').backgroundColor(Color.Transparent).onClick(() => { (this.getUIContext().getHostContext() as common.UIAbilityContext).terminateSelf(); })
         Text(this.errorText).fontColor('#D8353F')
       }.padding(24).height('100%').justifyContent(FlexAlign.Center)

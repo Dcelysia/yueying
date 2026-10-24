@@ -10,7 +10,7 @@ export struct AboutPane {
   @State versionName: string = '';
   aboutToAppear(): void { bundleManager.getBundleInfoForSelf(bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT).then((info: bundleManager.BundleInfo) => { this.versionName = info.versionName; }).catch(() => {}); }
   private openSource(): void {
-    (this.getUIContext().getHostContext() as common.UIAbilityContext).startAbility({ action: 'ohos.want.action.viewData', uri: 'https://github.com/Dcelysia/yueying/tree/harmony-native-v1.0.2' }).catch(() => {});
+    (this.getUIContext().getHostContext() as common.UIAbilityContext).startAbility({ action: 'ohos.want.action.viewData', uri: 'https://github.com/Dcelysia/yueying/tree/harmony-native-v1.0.2-build9' }).catch(() => {});
   }
   @Builder
   row(label: string, action: () => void) {
@@ -36,7 +36,7 @@ export struct AboutPane {
           this.row('GPL-3.0 许可证', () => { this.onLegal('license'); })
           this.row('清除搜索历史', () => { this.api.clearSearchHistory(); this.getUIContext().getPromptAction().showToast({ message: '搜索历史已清除' }); })
           this.row('撤回同意并清除本机记录', () => {
-            this.getUIContext().showAlertDialog({ title: '撤回同意？', message: '清除本机账号、搜索和电视连接记录，返回首次告知页。电视会继续播放。', primaryButton: { value: '取消', action: () => {} }, secondaryButton: { value: '撤回', action: this.onWithdraw } });
+            this.getUIContext().showAlertDialog({ title: '撤回同意？', message: '清除本机账号、搜索和电视连接记录，并撤回隐私授权。电视会继续播放。', primaryButton: { value: '取消', action: () => {} }, secondaryButton: { value: '撤回', action: this.onWithdraw } });
           })
         }.width('100%').backgroundColor('#FFFFFF').borderRadius(16)
       }.padding(16)

@@ -89,7 +89,7 @@ cp apps/harmony/build-profile.example.json5 apps/harmony/build-profile.json5
 
 在 DevEco 的 Signing Configs 中设置自己的开发签名与设备，确保 product 的 `signingConfig` 关联正确。活动配置、私钥和设备授权资料不入 Git。真机运行应安装 `*-signed.hap`；`*-unsigned.hap` 不能代替已签名开发包。AppTest 使用市场发布签名，原包升级必须保持同一应用身份。
 
-正式发布资料、原生 APP 构建与校验见[鸿蒙发布说明](harmonyos-release.md)。默认包名 `com.dcelysia.yueying`，版本 1.0.2（8），最低 API 26；fork 应使用自己的应用身份及真实资料，不冒用原维护者身份。源码更新、构建成功均不等于测试版本已获审。
+正式发布资料、原生 APP 构建与校验见[鸿蒙发布说明](harmonyos-release.md)。默认包名 `com.dcelysia.yueying`，版本 1.0.2（9），最低 API 26；fork 应使用自己的应用身份及真实资料，不冒用原维护者身份。源码更新、构建成功均不等于测试版本已获审。
 
 ## 7. 模拟器联调边界
 

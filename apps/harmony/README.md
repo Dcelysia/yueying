@@ -1,6 +1,6 @@
 # 跃映 · HarmonyOS 原生版
 
-版本 **1.0.2（8）**，包名 `com.dcelysia.yueying`。这是跃映的 ArkTS / ArkUI / UIDesignKit 实现，替代旧 `ohos-poc` Flutter 鸿蒙实现；原项目历史保留。Android 的 Flutter 和电视接收端不随本次迁移改变。
+版本 **1.0.2（9）**，包名 `com.dcelysia.yueying`。这是跃映的 ArkTS / ArkUI / UIDesignKit 实现，替代旧 `ohos-poc` Flutter 鸿蒙实现；原项目历史保留。Android 的 Flutter 和电视接收端不随本次迁移改变。
 
 ## 功能与边界
 
@@ -22,7 +22,7 @@ cp build-profile.example.json5 build-profile.json5
 
 ## 构建与公开资料
 
-常规开发可由 IDE 构建 entry；正式发布使用仓库根目录的 `scripts/build-harmonyos.py`，详见[发布说明](../../docs/harmonyos-release.md)。签名、真实运营者、联系邮箱与政策 URL 只放本机私有配置，禁止提交。原生内置政策模板位于 `entry/src/main/resources/rawfile/`，发布时替换占位符。
+常规开发可由 IDE 构建 entry；正式发布使用仓库根目录的 `scripts/build-harmonyos.py`，详见[发布说明](../../docs/harmonyos-release.md)。签名、真实运营者、联系邮箱与政策 URL 只放本机私有配置，禁止提交。原生内置政策模板位于 `entry/src/main/resources/rawfile/`，发布时替换占位符。市场隐私托管包通过 AppGalleryKit 核对系统当前政策 ID、版本和明确同意结果后初始化；不再重复弹本地首次同意页。应用内隐私入口查询系统托管链接，用户协议仍可在应用内阅读。只有明确不支持托管的开发环境才使用离线同意流程，托管读取失败不能降级绕过。撤回会先停止处理并清除本机数据，再撤回系统同意；未完成时保持阻断并允许重试。
 
 默认正式包名不显示模拟器假账号入口；专用预览包才允许本地演示数据。演示数据与截图不能作为真实账号或网络功能通过的证明。构建通过也不等于商店审核通过或所有设备均无卡顿。
 
