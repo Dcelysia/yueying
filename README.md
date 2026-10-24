@@ -35,7 +35,15 @@
 | --- | --- |
 | <img src="docs/images/harmony-fullscreen.jpeg" width="520" alt="鸿蒙全屏电视控制：进度、选集、倍速、画质、弹幕、音量和跳过"> | <img src="docs/images/harmony-volume.jpeg" width="520" alt="鸿蒙电视音量面板：显示电视音量和加减按钮"> |
 
-界面截图用于展示手机浏览和电视控制。产品操作演示正在重新录制，将展示实际选片、接入与电视响应；不把单独的视频流片段作为产品演示。截图来源与版本边界见[素材说明](docs/images/README.md)。
+### 产品操作演示
+
+下面的自动预览节选了真实产品操作；完整视频约 52 秒，可直接在 GitHub 页面内点播。
+
+![跃映真实产品操作自动预览](docs/videos/product-preview.gif)
+
+https://github.com/user-attachments/assets/0801407f-f1e5-4945-9c4e-27a20b772261
+
+演示展示 B 从首页进入电视已有播放、A 切片后 B 标题同步，以及 B 全屏调节音量、进度和播放状态。每个片段的手机与电视来自同一录制时段；已剪去等待，A 画面未录制，没有合成 UI 或运动补帧。不是帧率、延迟或零掉帧证明。来源与采集边界见[素材说明](docs/images/README.md)及[视频说明](docs/videos/README.md)。
 
 ## 开始使用
 
