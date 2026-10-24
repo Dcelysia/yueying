@@ -89,4 +89,4 @@ Android 构建需要 Python 3.11+、Android SDK 和 JDK 17；仓库固定 Flutte
 
 biliMusic 为手机与电视协作方式提供了设计启发，未复制其业务代码。项目功能及可访问内容仍受第三方服务、账号权限、网络与设备能力影响。
 
-维护者：**dcelysia**。鸿蒙版运营者：**宁启睿**；公开联系邮箱：**6873058@qq.com**。[隐私政策](https://dcelysia.github.io/yueying/site/privacy.html) · [用户协议](https://dcelysia.github.io/yueying/site/terms.html)。
+维护者：**dcelysia**。[隐私政策](https://dcelysia.github.io/yueying/site/privacy.html) · [用户协议](https://dcelysia.github.io/yueying/site/terms.html)。
