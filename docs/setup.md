@@ -89,6 +89,16 @@ python3 scripts/setup-flutter-ohos.py
 
 本项目当前基线 Flutter-OH 3.41.9+ohos-1.0.2 / Dart 3.11.5。脚本默认安装到 `~/development/flutter-ohos`；需要自定义位置时使用 `FLUTTER_OHOS_HOME`。不要让该目录覆盖已有其他 SDK。
 
+Apple Silicon 的 release 构建还需要 Rosetta：本项目锁定的 Flutter-OH 3.41.9+ohos-1.0.2 中，`ohos-arm64-release/darwin-x64/gen_snapshot` 是 x86_64 可执行文件。2026-10-24 的正式 APP 构建曾因此报 `Bad CPU type in executable`；安装 Rosetta 后，同一引擎与源码构建通过。
+
+若本机尚未安装，由使用者运行普通交互命令、阅读并确认 Apple 许可：
+
+```sh
+softwareupdate --install-rosetta
+```
+
+AI 搭建工具不得默认追加 `--agree-to-license` 代为接受许可。不要从其他 Flutter 或引擎版本拷贝 `gen_snapshot` 替换来绕过此错误，快照工具必须与本项目锁定的引擎匹配。
+
 首次检出且尚无本机签名配置时，将 `ohos-poc/ohos/build-profile.example.json5` 复制为 `ohos-poc/ohos/build-profile.json5`。在 DevEco Studio 打开鸿蒙工程，配置自己的设备、调试证书和 Profile；使用自己的签名材料，不能复用维护者未公开的文件。活动签名配置不入 Git。
 
 macOS 的开发构建示例：
@@ -106,11 +116,11 @@ NODE_HOME=/Applications/DevEco-Studio.app/Contents/tools/node \
 
 安装调试 HAP 的实际设备必须在签名 Profile 支持范围内；使用 DevEco 运行/安装。模拟器跑通不代表家庭真机上的自动发现、后台重连或硬件性能已验证。
 
-正式发布前，必须把开发包标识改成本人在华为开发者中心登记的实际 `bundleName`，配置发布签名，核对 `ohos-poc/release-metadata.json` 的公开信息。可先使用本项目发布预检：
+正式发布前，必须把开发包标识改成本人在华为开发者中心登记的实际 `bundleName`，配置发布签名，核对 本机 `.private/harmonyos-signing/release-metadata.json` 的发布信息。可先使用本项目发布预检：
 
 ```sh
 python3 scripts/build-harmonyos.py \
-  --config ohos-poc/release-metadata.json \
+  --config .private/harmonyos-signing/release-metadata.json \
   --bundle-name 你登记的实际包名 \
   --check-only
 ```

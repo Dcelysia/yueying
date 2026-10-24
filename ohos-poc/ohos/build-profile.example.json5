@@ -1,4 +1,4 @@
-// 已登记正式应用：跃映；bundleName=com.dcelysia.yueying；vendor=宁启睿。
+// 已登记正式应用：跃映；bundleName=com.dcelysia.yueying；vendor=dcelysia。
 // 此公共模板不含签名。复制为本机 build-profile.json5 后配置独立发布密钥、证书与发布 Profile。
 // 发布 Profile 必须绑定上述正式包名；切换调试/发布前先备份各自本机配置，勿覆盖或提交签名秘密。
 {

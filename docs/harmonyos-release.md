@@ -1,16 +1,18 @@
 # 鸿蒙家庭测试与发布说明
 
-核对日期：2026-10-24。按个人华为开发者账号准备。
+核对日期：2026-10-24。使用个人华为开发者账号，本次只走 AppTest 邀请测试，不另外发起公开上架。
+
+当前实际状态：已创建跃映 APP ID，上传并关联正式签名的“仅测试”APP，已通过本人手机号验证并关联家庭群组，已提交 AppTest 邀请测试。后台版本列表及状态页显示“正在等待审核”；提交时进入自动预审，通过后自动交由审核团队处理。软件包合法性已达标，上架自检仍显示“检测中”。未审核通过或发布测试版本，未发送测试通知。
 
 ## 当前工程与第一版边界
 
 鸿蒙入口位于 `ohos-poc/`，使用 Flutter-OH。第一版支持推荐、搜索、视频详情和分 P、收藏夹、观看历史、可选扫码登录，以及电视发现、连接和全屏遥控；不引入手机本地播放器及其原生依赖。Android 手机仍位于 `apps/mobile/`，保留本地播放。两端实际共同依赖 `packages/bili_remote_core/` 的发现、协议和同步状态；浏览 UI 尚未全量共享。
 
-源码已经纳入 Git，依赖目录、构建产物、本机签名及活动 `ohos/build-profile.json5` 排除。提供无签名的 `build-profile.example.json5`，首次检出后复制并在 DevEco 配置自己的签名。当前 `com.example.ohos_hello` 仍是开发标识，正式邀测前需要登记最终身份并重签；本地构建不代表已提交审核。
+源码已经纳入 Git，依赖目录、构建产物、本机签名及活动 `ohos/build-profile.json5` 排除。提供无签名的 `build-profile.example.json5`，首次检出后复制并在 DevEco 配置自己的签名。当前正式包名为 `com.dcelysia.yueying`、版本 `1.0.0+1`，已完成独立发布签名；`com.example.ohos_hello` 仅是此前模拟器开发包的标识。本轮正式包已上传并提交邀请测试审核。
 
 ## 家庭使用的分发路径
 
-**可以先做邀请测试，不必先公开上架正式版。** 华为[分发入门](https://developer.huawei.com/consumer/cn/appgallery/devstart/)明确支持在正式发布之前选择特定用户群组测试 HarmonyOS 应用。当前只准备材料和开发安装，尚未形成本项目的审核任务或可用邀请链接；其他应用的邀测链接不能复用于本项目。
+**可以先做邀请测试，不必先公开上架正式版。** 华为[分发入门](https://developer.huawei.com/consumer/cn/appgallery/devstart/)明确支持在正式发布之前选择特定用户群组测试 HarmonyOS 应用。本项目已完成 APP ID 登记、正式仅测试包上传及首轮家庭 AppTest 邀请测试提交，当前正在等待审核。后台已生成本版本分享链接和二维码；这不表示版本已审核通过或可以安装。其他应用的邀测链接不能复用于本项目。
 
 | 路径 | 本项目用途与限制 |
 | --- | --- |
@@ -44,7 +46,7 @@
 | 备案和类别资质 | 华为分发入门要求按实际业务履行备案和适用资质要求。本次没有查到本项目“家庭邀请测试”免除备案或内容授权核验的官方依据，也不声称该测试表单一定强制所有资质。以账号、应用类别及表单审核结果确认，缺少资料时不虚填备案号。 |
 | 第三方内容来源 | 如实写明 B站接口、账号及图片服务的实际用途、手机不播放及电视端的职责；开源许可证与 B站内容/品牌授权分开核对，按审核要求提供真实材料。其他项目存在邀请测试不等于本项目已获授权或审核保证。 |
 
-发布包格式依据[华为提交 HarmonyOS 应用指引](https://developer.huawei.com/consumer/cn/app/submit)；签名配置字段依据[工程级 build-profile.json5 文档](https://developer.huawei.com/consumer/cn/doc/doccenter-deveco-studio/ide-hmos-hvigor-build-profile-app)（页面更新时间 2026-10-08）。本清单尚未替代开发者中心的实际身份登记、签名与提交。
+发布包格式依据[华为提交 HarmonyOS 应用指引](https://developer.huawei.com/consumer/cn/app/submit)；签名配置字段依据[工程级 build-profile.json5 文档](https://developer.huawei.com/consumer/cn/doc/doccenter-deveco-studio/ide-hmos-hvigor-build-profile-app)（页面更新时间 2026-10-08）。本项目身份登记、发布签名与测试包上传现已实际完成；该指引不代替后台的最终校验与审核。
 
 ## 权限声明与用途
 
@@ -111,7 +113,7 @@
 
 首启同意前只初始化本机存储和读取内置文件；同意后才创建浏览客户端及恢复电视连接。“我的 → 关于与隐私”可离线阅读隐私政策、用户协议、第三方 NOTICE 及许可证，也可退出登录、清搜索/电视连接或撤回同意。清理连接不会停止电视播放。
 
-正式发布的公开信息模板为 `ohos-poc/release-metadata.example.json`。复制为本机配置并填写真实运营者、邮箱、对应源码、隐私政策及用户协议 HTTPS 地址；这些是公开信息，签名密码不得写入该文件。公开政策正文与应用内 `assets/legal/` 内容保持一致，可使用华为提供的隐私声明托管服务，或发布到自己的 HTTPS 网站。
+正式发布的公开信息模板为 `ohos-poc/release-metadata.example.json`。复制到已忽略的 `.private/harmonyos-signing/release-metadata.json`，填写本人确认的运营者、邮箱、对应源码、隐私政策及用户协议 HTTPS 地址；身份联系配置留在本机，签名密码不得写入该文件。公开政策正文与应用内 `assets/legal/` 内容保持一致，可使用华为提供的隐私声明托管服务，或发布到自己的 HTTPS 网站。
 
 先在华为后台登记应用身份，将 `ohos-poc/ohos/AppScope/app.json5` 的 bundleName/vendor 设置为自己的真实值，并在 DevEco 配置匹配的发布证书和发布 Profile。然后执行：
 
@@ -124,34 +126,27 @@ python3 scripts/build-harmonyos.py --config /absolute/path/release-metadata.json
 
 脚本只检查公开信息及本机包名一致性，不替代华为的签名、备案、内容授权或审核校验。上传 Flutter 构建日志所列出的 release `.app`，不要上传本文验证用的 debug HAP。当前示例配置会被构建前检查拒绝；运行时 release 也会拒绝未填写公开资料的版本。
 
-本次已完成华为后台登录、真实应用登记和邀请测试草稿准备；尚未上传正式签名发布包或提交审核，尚未产生可分发给家人的 AppTest 邀请链接。实际登记与未完成项见下节。
+本次已完成华为后台登录、真实应用登记、独立发布签名、正式仅测试包上传和 AppTest 邀请测试提交。实际状态为“正在等待审核”，不是准备提交草稿，也不是审核通过。后台已生成版本分享入口，未向家人发送。实际登记与审核状态见下节。
 
 
-## 2026-10-24 已登记的跃映与邀请测试草稿
+## 2026-10-24 已登记的跃映与已提交邀请测试
 
 后台实际确认：名称“跃映”，HarmonyOS 应用，默认语言简体中文，登记支持设备仅手机。应用商店分类为“影视与直播”，主标签“视频”、附加标签“投屏”，不以工具分类隐藏视频浏览用途。
 
 | 项目 | 实际值 |
 | --- | --- |
-| APP ID | `6917619919209390031` |
-| Project ID | `101653523865432690` |
 | 已登记正式包名 | `com.dcelysia.yueying` |
-| 邀测草稿 | 首轮家庭联调，准备提交 |
-| 测试版本 ID | `2068266587705620736` |
+| 邀测版本 | 首轮家庭联调，正在等待审核 |
 
-- [跃映基础信息](https://developer.huawei.com/consumer/cn/hdc-console/#/app/101653523124950145?appId=6917619919209390031&projectId=101653523865432690)
-- [应用信息与分类标签](https://developer.huawei.com/consumer/cn/hdc-console/#/app/9249519184596237673?appId=6917619919209390031&projectId=101653523865432690)
-- [邀请测试列表](https://developer.huawei.com/consumer/cn/hdc-console/#/app/172249065903122945?appId=6917619919209390031&projectId=101653523865432690)；打开“首轮家庭联调”行中的“待上传测试包”继续编辑。
-- [已观察到的草稿编辑页](https://developer.huawei.com/consumer/cn/service/josp/agc/amp/?_=20261015161739#/distribute/appTest/versionConfig?versionId=2068266587705620736&readOnly=0)；需要同一华为账号登录，若直接打开缺少外层上下文，使用上一条列表进入。
-- [测试用户与群组](https://developer.huawei.com/consumer/cn/hdc-console/#/app/172249065903122947?appId=6917619919209390031&projectId=101653523865432690)
+具体应用、项目、测试版本及签名记录保存在本机私有发布记录中。本人可登录[HarmonyOS 开发者中心](https://developer.huawei.com/consumer/cn/)，进入“应用管理 → 分发 → 应用测试”查看对应版本；不在公开文档重复展示账户后台的定向入口。
 
-已保存非敏感草稿内容：最终白底红图（`dist/harmonyos/appgallery-icon-1024.png`，由原图正常缩放）、真实应用介绍、测试说明、电视依赖与可选登录审核备注、用户明确确认的负责人姓名“宁启睿”和邮箱 `6873058@qq.com`。介绍明确基于 PiliPlus、NeoBV 等开源项目二次开发并保留原作者版权和许可证，未声称原作者许可等于获得 B站内容、商标或接口授权。后台应用信息与邀测资料的图标已分别上传并保存。
+已保存非敏感草稿内容：最终白底红图（`dist/harmonyos/appgallery-icon-1024.png`，由原图正常缩放）、真实应用介绍、测试说明、电视依赖与可选登录审核备注、本人在后台确认的真实负责人联系资料。本文不重复展示审核负责人实名。介绍明确基于 PiliPlus、NeoBV 等开源项目二次开发并保留原作者版权和许可证，未声称原作者许可等于获得 B站内容、商标或接口授权。后台应用信息与邀测资料的图标已分别上传并保存。
 
-后续仍须补齐测试开始/结束时间、与正式包名匹配的发布签名 `.app`、公开隐私政策网址、负责人手机号及本人短信验证，并选择至少一个测试群组。后台要求设备型应用提供自测文件，可上传不超过15 MB的docx或mp4，总文件数最多5个、总大小不超过500 MB；使用实际联调录像，不能把未验证的能力写成已通过。此前用于模拟器的开发 HAP 采用 `com.example.ohos_hello` 和开发 Profile，不等于正式发布身份，不应上传作为审核包。
+正式 `.app` 已上传并关联本草稿；测试时间已保存为 2026-10-25 00:00:00 至 2026-11-08 00:00:00，设备为手机、地区为中国大陆，软件包选择不额外加密。公开隐私政策已填写，用户协议与对应源码已放入审核备注。本人现已完成手机号验证，第一步校验通过；已关联外部“家庭邀测”群组，发送测试通知选择“否”。后台要求设备型应用提供自测文件，可上传不超过15 MB的docx或mp4，总文件数最多5个、总大小不超过500 MB；如需补充自测文件，使用实际联调录像，不能把未验证的能力写成已通过。此前用于模拟器的开发 HAP 采用 `com.example.ohos_hello` 和开发 Profile，不等于正式发布身份，不应上传作为审核包。
 
-负责人手机号、验证码和测试成员账号不写入本仓库，也不由代理猜填或发送给他人。未点击获取/提交手机验证码、发布测试版本或提交审核。
+负责人手机号、验证码和测试成员账号不写入本仓库，也不由代理猜填或发送给他人。手机号及短信验证由本人完成。随后已提交 AppTest 邀请测试，未发起公开上架、未发布测试版本。
 
-后台已创建外部测试群组“家庭邀测”，当前0人，未添加任何成员。添加方式支持单个华为账号邮箱/手机号、批量导入和邀请码。邀请码添加界面显示有效期30天，可指定人数（上限10000）；实际家庭使用应按家人人数设定，不向无关人公开。当前尚未生成邀请码。测试版本配置必须选择至少一个群组，后续由本人决定家人账号或小人数邀请码。
+后台已创建外部测试群组“家庭邀测”，当前0人，未添加任何成员。添加方式支持单个华为账号邮箱/手机号、批量导入和邀请码。邀请码添加界面显示有效期30天，可指定人数（上限10000）；实际家庭使用应按家人人数设定，不向无关人公开。当前尚未生成邀请码。本次测试版本已经关联该群组；后续由本人决定实际家人账号或小人数邀请码，不自动联系成员。
 
 ### 正式发布签名与构建切换
 
@@ -159,7 +154,7 @@ python3 scripts/build-harmonyos.py --config /absolute/path/release-metadata.json
 
 1. 在 DevEco Studio 创建一套独立的发布密钥库和 CSR，保留现有开发密钥与配置。私钥、密码留在本机安全位置，不提交仓库。
 2. 打开[开发者管理 → 证书](https://developer.huawei.com/consumer/cn/hdc-console/#/home/9249519184596237889)，新增证书，填写发布证书名称，选择“发布证书”，上传步骤1产生的 CSR，创建后下载 CER。后台只需要公开 CSR，不上传私钥或密钥库。
-3. 打开[开发者管理 → Profile](https://developer.huawei.com/consumer/cn/hdc-console/#/home/172249065903274468)，添加，选择“跃映 -- 6917619919209390031”，确认包名，填写 Profile 名称，选择普通“发布”类型并绑定上一步发布证书，添加后下载。该普通发布 Profile 不使用开发设备列表；不把“调试”或“指定设备发布”冒充普通应用市场发布。
+3. 打开[开发者管理 → Profile](https://developer.huawei.com/consumer/cn/hdc-console/#/home/172249065903274468)，添加，选择自己登记的“跃映”应用，确认包名，填写 Profile 名称，选择普通“发布”类型并绑定上一步发布证书，添加后下载。该普通发布 Profile 不使用开发设备列表；不把“调试”或“指定设备发布”冒充普通应用市场发布。
 4. 在本机单独的 release 签名配置中引用匹配的发布密钥库、证书和 Profile，并使用登记的正式包名。配置及产物不得覆盖现有开发配置，不提交包含密钥/密码的文件。
 5. 公开政策和源码配置完整后，使用构建脚本生成 release `.app`，验证包名/版本/签名类型后上传软件包管理，再将该包关联到“首轮家庭联调”草稿。
 
@@ -169,7 +164,20 @@ python3 scripts/build-harmonyos.py --config /absolute/path/release-metadata.json
 - `yueying-release.p12` 是独立 EC secp256r1 发布密钥库，别名 `yueying-release`；密码只存本机 `signing.properties` / `.keystore-password`，命令通过 passwordfile 读取，不打印密码。
 - `yueying-release.cer`、`yueying-release.p7b` 分别是后台下载的发布证书与普通发布 Profile。
 - 原 `ohos/build-profile.json5` 已原样备份为私有 `build-profile.debug.json5`；新的 `build-profile.release.json5` 和当前被忽略的 `ohos/build-profile.json5` 均为严格 JSON，产品 default 绑定 `yueyingRelease`。modules、compatibleSdkVersion、targetSdkVersion 与公共模板一致。
-- 当前受版本管理的 AppScope 身份已设置为 `com.dcelysia.yueying` / vendor `宁启睿` / `1.0.0+1`。恢复 debug 配置时还必须让应用身份与原 debug Profile 对应；不要只换签名文件，也不要覆盖任一备份。
+- 当前 AppScope 正式包名为 `com.dcelysia.yueying`、版本 `1.0.0+1`，签名身份与实际后台登记匹配。恢复 debug 配置时还必须让应用身份与原 debug Profile 对应；不要只换签名文件，也不要覆盖任一备份。
 - Hvigor 要求密码使用其配套 `material/` 的加密格式，不能将原始密码直接粘入 signingConfigs。本次生成独立密码加密材料，已用本机官方 `DecipherUtil.decryptPwd` 回环验证，发布配置不依赖旧 debug 加密材料。
 
-以上是签名准备完成，尚不代表构建或审核完成。仍需按上文生成正式 release `.app`，核对包名、版本与不可调试标志后上传；原开发 HAP 不作为审核包。
+正式 release `.app` 已构建、校验包名/版本/发布签名及不可调试标志，提取的 release HAP 已在鸿蒙模拟器安装启动；正式 APP 已上传用于 AppTest 邀测，原开发 HAP 未作为审核包。
+
+
+### 当前上传包与审核状态
+
+- 上传文件：`dist/harmonyos/yueying-harmony-1.0.0-release.app`，11,491,116 字节。
+- SHA256：`8953f87518f4b44408f265468fb2f112ee9cccd8830220feffc810cc153094f4`。
+- 后台识别：`com.dcelysia.yueying` / `1.0.0（1）` / 手机 / 仅测试；软件包合法性“已达标”。上架自检任务已启动，最后查看仍为“检测中”，不能写成自检通过。该自检不等于提交公开上架。
+- 对应源码：[harmony-v1.0.0-preview.1](https://github.com/Dcelysia/yueying/tree/harmony-v1.0.0-preview.1)。公开源码保留完整业务实现、构建方式及原许可证；发布者身份资料使用本机构建配置，实际提交包与签名记录另存本机。
+- 已上线页面：[主页](https://dcelysia.github.io/yueying/site/)、[隐私政策](https://dcelysia.github.io/yueying/site/privacy.html)、[用户协议](https://dcelysia.github.io/yueying/site/terms.html)。自定义隐私政策方式下表单没有独立用户协议输入框；协议地址已放入审核备注并可在应用内阅读，未把协议地址冒填到“隐私权利”字段。
+- 本人已完成负责人手机号短信验证；已关联“家庭邀测”群组并关闭测试通知，邀请测试已提交。手机号与验证码不记录在本仓库。
+- 群组仍是0人，未生成群组邀请码、未发送邀请。平台“生成二维码”正常下载6张二维码，实际解码均是本版本的 taskId 分享链接，不含 invitationCode；只保存在后台及被忽略的本机产物目录，不把可加入家庭的链接、二维码或口令写入公开仓库。自测文件未上传，若审核要求补充，则按真实录像处理。
+
+所有必填信息已通过平台校验并保存，AppTest 邀请测试已提交。最后查看版本列表与详情页均为“正在等待审核”，软件包上架自检仍在运行；没有撤销审核，也未向家人发送通知。平台提交时说明自动预审通常约30–40分钟，预审通过会自动提交审核团队，失败会返回检测报告；该时间仅是平台提示，不是审核通过承诺。

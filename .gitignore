@@ -9,3 +9,5 @@
 __pycache__/
 **/signing.properties
 /.private/
+/.hvigor/
+/ohos-poc/release-metadata.json

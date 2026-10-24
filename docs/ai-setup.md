@@ -28,7 +28,7 @@
 
 工作要求：
 1. 先检查已有环境与仓库状态，再沿脚本和锁定版本搭建。保留我已有源码、分支、SDK、签名和设备数据；缺失资料才向我询问。
-2. Android 手机/电视与 HarmonyOS 使用配套但独立的工具链。不要用 Flutter-OH 覆盖 Android Flutter，也不要任意升级依赖。
+2. Android 手机/电视与 HarmonyOS 使用配套但独立的工具链。不要用 Flutter-OH 覆盖 Android Flutter，也不要任意升级依赖。 Apple Silicon 构建锁定版本的鸿蒙 release 若报 Bad CPU type in executable，先检查其 x86_64 gen_snapshot 所需的 Rosetta；安装前由我确认 Apple 许可，使用普通交互安装，不默认添加 --agree-to-license，也不替换其他引擎的 gen_snapshot。
 3. HarmonyOS 第一版只浏览和遥控，不加入手机本地视频播放；Android 原有本地播放保留。
 4. 电视独立取流；手机只发送视频身份和控制命令。保留 A/B 多手机同步，B 进入现有控制页不得重播或重置进度。
 5. 先完成最小可构建结果，再按我授权范围安装。ADB、DevEco 设备信任、账号登录、SDK 协议由我确认；不要自动代签新协议或绕过系统授权。
