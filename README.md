@@ -29,22 +29,13 @@
 
 以下为 2026-10-24 开发预览版的模拟器实拍，未重绘软件界面；后续构建可能调整样式。画面中的 `Bili Remote TV` 是电视接收端名称。
 
-<table>
-  <tr>
-    <td width="28%" valign="top"><img src="docs/images/harmony-player.jpeg" width="260" alt="鸿蒙占位播放器与新版选集卡片"><br>手机浏览、选集与遥控</td>
-    <td width="72%" valign="top"><img src="docs/videos/tv-preview.gif" width="700" alt="Android TV 真实播放自动循环预览"><br>Android TV 独立取流与弹幕 · 自动循环预览</td>
-  </tr>
-</table>
-
-原生视频可在 GitHub 页面内点播（约 9 秒，无音频）：
-
-https://github.com/user-attachments/assets/7e5e688d-f51b-4740-ae82-f68519ae1bbe
+<p align="center"><img src="docs/images/harmony-player.jpeg" width="260" alt="鸿蒙占位播放器与新版选集卡片"></p>
 
 | 鸿蒙全屏占位播放器 | 电视音量面板 |
 | --- | --- |
 | <img src="docs/images/harmony-fullscreen.jpeg" width="520" alt="鸿蒙全屏电视控制：进度、选集、倍速、画质、弹幕、音量和跳过"> | <img src="docs/images/harmony-volume.jpeg" width="520" alt="鸿蒙电视音量面板：显示电视音量和加减按钮"> |
 
-短演示只记录电视当时的播放与弹幕，不包含跨端操作过程，不作为帧率或零掉帧证明。截图和演示的来源、版本边界见[素材说明](docs/images/README.md)与[视频说明](docs/videos/README.md)。
+界面截图用于展示手机浏览和电视控制。产品操作演示正在重新录制，将展示实际选片、接入与电视响应；不把单独的视频流片段作为产品演示。截图来源与版本边界见[素材说明](docs/images/README.md)。
 
 ## 开始使用
 
