@@ -32,9 +32,13 @@
 <table>
   <tr>
     <td width="28%" valign="top"><img src="docs/images/harmony-player.jpeg" width="260" alt="鸿蒙占位播放器与新版选集卡片"><br>手机浏览、选集与遥控</td>
-    <td width="72%" valign="top"><img src="docs/images/tv-playback.png" width="700" alt="Android TV 独立播放视频与弹幕"><br>Android TV 独立取流与弹幕<br><a href="docs/videos/tv-playback.mp4">查看 / 下载真实短演示（MP4，约 9 秒，无音频）</a></td>
+    <td width="72%" valign="top"><img src="docs/videos/tv-preview.gif" width="700" alt="Android TV 真实播放自动循环预览"><br>Android TV 独立取流与弹幕 · 自动循环预览</td>
   </tr>
 </table>
+
+原生视频可在 GitHub 页面内点播（约 9 秒，无音频）：
+
+https://github.com/user-attachments/assets/7e5e688d-f51b-4740-ae82-f68519ae1bbe
 
 | 鸿蒙全屏占位播放器 | 电视音量面板 |
 | --- | --- |
