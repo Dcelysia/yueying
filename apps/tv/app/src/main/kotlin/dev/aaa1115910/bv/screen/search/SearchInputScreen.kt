@@ -1,0 +1,607 @@
+package dev.aaa1115910.bv.screen.search
+
+import android.content.res.Configuration
+import android.graphics.BitmapFactory
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Button
+import androidx.tv.material3.ButtonDefaults
+import androidx.tv.material3.Icon
+import androidx.tv.material3.IconButton
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Text
+import dev.aaa1115910.biliapi.entity.search.Hotword
+import dev.aaa1115910.biliapi.util.AvBvConverter
+import dev.aaa1115910.bv.R
+import dev.aaa1115910.bv.activities.search.SearchResultActivity
+import dev.aaa1115910.bv.activities.video.VideoInfoActivity
+import dev.aaa1115910.bv.component.search.SearchKeyword
+import dev.aaa1115910.bv.component.search.SoftKeyboard
+import dev.aaa1115910.bv.entity.db.SearchHistoryDB
+import dev.aaa1115910.bv.network.HttpServer
+import dev.aaa1115910.bv.tv.component.TvAlertDialog
+import dev.aaa1115910.bv.ui.theme.BVTheme
+import dev.aaa1115910.bv.util.Prefs
+import dev.aaa1115910.bv.util.touchClick
+import dev.aaa1115910.bv.viewmodel.search.SearchInputViewModel
+import io.github.g0dkar.qrcode.QRCode
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import org.koin.androidx.compose.koinViewModel
+
+private val SearchKeywordDenseSlotHeight = 40.dp
+private val SearchHistoryListContentVerticalPadding = 4.dp
+private val SearchHistoryVisibleItemCount = 5
+
+private val SearchHistoryListHeight: Dp =
+    SearchKeywordDenseSlotHeight * SearchHistoryVisibleItemCount + SearchHistoryListContentVerticalPadding * 2
+
+@Composable
+fun SearchInputScreen(
+    modifier: Modifier = Modifier,
+    defaultFocusRequester: FocusRequester,
+    searchInputViewModel: SearchInputViewModel = koinViewModel()
+) {
+    val context = LocalContext.current
+
+    val searchKeyword = searchInputViewModel.keyword
+    val phoneSearchKeyword = searchInputViewModel.phoneSearchKeyword
+    val hotwords = searchInputViewModel.hotwords
+    val searchHistories = searchInputViewModel.searchHistories
+    val suggests = searchInputViewModel.suggests
+
+    var enableProxy by remember { mutableStateOf(false) }
+
+    val onSearch: (String) -> Unit = { keyword ->
+        val trimmedKeyword = keyword.trim()
+        if (trimmedKeyword.isNotBlank()) {
+            resolveDirectVideoAid(trimmedKeyword)?.let { aid ->
+                VideoInfoActivity.actionStart(context, aid)
+            } ?: SearchResultActivity.actionStart(context, trimmedKeyword, enableProxy)
+            searchInputViewModel.keyword = trimmedKeyword
+            searchInputViewModel.addSearchHistory(trimmedKeyword)
+        }
+    }
+
+    LaunchedEffect(searchKeyword) {
+        searchInputViewModel.updateSuggests()
+    }
+    LaunchedEffect(phoneSearchKeyword) {
+        val keyword = phoneSearchKeyword ?: return@LaunchedEffect
+        searchInputViewModel.consumePhoneSearchKeyword()
+        onSearch(keyword)
+    }
+
+    SearchInputScreenContent(
+        modifier = modifier,
+        defaultFocusRequester = defaultFocusRequester,
+        searchKeyword = searchKeyword,
+        onSearchKeywordChange = { searchInputViewModel.keyword = it },
+        onSearch = onSearch,
+        showProxyOptions = Prefs.enableProxy,
+        enableProxy = enableProxy,
+        onEnableProxyChange = { enableProxy = it },
+        hotwords = hotwords,
+        suggests = suggests,
+        histories = searchHistories,
+        onDeleteHistory = { searchInputViewModel.deleteSearchHistory(it) },
+        onDeleteAllHistories = { searchInputViewModel.deleteAllSearchHistories() }
+    )
+}
+
+internal fun resolveDirectVideoAid(input: String): Long? {
+    val trimmed = input.trim()
+    val bvid = Regex("(?i)BV[0-9A-Za-z]{10}").find(trimmed)?.value
+    if (bvid != null) {
+        return runCatching { AvBvConverter.bv2av(bvid) }.getOrNull()
+    }
+    Regex("(?i)(?:^|[^0-9A-Za-z])av(\\d{1,18})(?:$|[^0-9A-Za-z])")
+        .find(trimmed)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.toLongOrNull()
+        ?.let { return it }
+    return null
+}
+
+@Composable
+private fun SearchInputScreenContent(
+    modifier: Modifier = Modifier,
+    defaultFocusRequester: FocusRequester,
+    searchKeyword: String,
+    onSearchKeywordChange: (String) -> Unit,
+    onSearch: (String) -> Unit,
+    showProxyOptions: Boolean,
+    enableProxy: Boolean,
+    onEnableProxyChange: (Boolean) -> Unit,
+    hotwords: List<Hotword>,
+    suggests: List<String>,
+    histories: List<SearchHistoryDB>,
+    onDeleteHistory: (SearchHistoryDB) -> Unit,
+    onDeleteAllHistories: () -> Unit
+) {
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            Box(
+                modifier = Modifier.padding(start = 48.dp, top = 24.dp, bottom = 8.dp, end = 48.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = stringResource(R.string.search_input_title),
+                        fontSize = 48.sp
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        Row(
+            modifier = Modifier
+                .padding(innerPadding)
+                .padding(vertical = 8.dp)
+                .padding(start = 24.dp)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            SearchInput(
+                firstButtonFocusRequester = defaultFocusRequester,
+                searchKeyword = searchKeyword,
+                onSearchKeywordChange = onSearchKeywordChange,
+                onSearch = { onSearch(searchKeyword) },
+                showProxyOptions = showProxyOptions,
+                enableProxy = enableProxy,
+                onEnableProxyChange = onEnableProxyChange
+            )
+
+            if (searchKeyword.isEmpty()) {
+                SearchHotwords(
+                    hotwords = hotwords,
+                    onSearch = onSearch
+                )
+            } else {
+                SearchSuggestion(
+                    suggests = suggests,
+                    onSearch = onSearch
+                )
+            }
+
+            Column(
+                modifier = Modifier.width(250.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
+                SearchHistory(
+                    modifier = Modifier
+                        .padding(end = 10.dp),
+                    histories = histories,
+                    onSearch = onSearch,
+                    onDelete = onDeleteHistory,
+                    onDeleteAll = onDeleteAllHistories
+                )
+                SearchPhoneInputQr()
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchInput(
+    modifier: Modifier = Modifier,
+    firstButtonFocusRequester: FocusRequester,
+    searchKeyword: String,
+    onSearchKeywordChange: (String) -> Unit,
+    onSearch: (String) -> Unit,
+    showProxyOptions: Boolean,
+    enableProxy: Boolean,
+    onEnableProxyChange: (Boolean) -> Unit
+) {
+    Box(
+        modifier = modifier
+            .width(280.dp)
+            .fillMaxHeight()
+            .focusGroup(),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            OutlinedTextField(
+                modifier = Modifier.width(258.dp),
+                value = searchKeyword,
+                onValueChange = onSearchKeywordChange,
+                maxLines = 1,
+                shape = MaterialTheme.shapes.large,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { onSearch(searchKeyword) }),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.inverseSurface,
+                    cursorColor = MaterialTheme.colorScheme.inverseSurface
+                )
+            )
+            SoftKeyboard(
+                firstButtonFocusRequester = firstButtonFocusRequester,
+                showSearchWithProxy = showProxyOptions,
+                enableSearchWithProxy = enableProxy,
+                onClick = { onSearchKeywordChange(searchKeyword + it) },
+                onClear = { onSearchKeywordChange("") },
+                onDelete = {
+                    if (searchKeyword.isNotEmpty()) {
+                        onSearchKeywordChange(searchKeyword.dropLast(1))
+                    }
+                },
+                onSearch = { onSearch(searchKeyword) },
+                onEnableSearchWithProxyChange = onEnableProxyChange
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchHotwords(
+    modifier: Modifier = Modifier,
+    hotwords: List<Hotword>,
+    onSearch: (String) -> Unit
+) {
+    var showHotword by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        showHotword = Prefs.showHotword
+    }
+
+    Column(
+        modifier = modifier
+            .width(250.dp)
+            .focusGroup(),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                text = stringResource(R.string.search_input_hotword),
+                style = MaterialTheme.typography.titleLarge
+            )
+            IconButton(
+                onClick = {
+                    showHotword = !showHotword
+                    Prefs.showHotword = showHotword
+                },
+                colors = ButtonDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                )
+            ) {
+                if (showHotword) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.expand_circle_up_24px),
+                        contentDescription = null
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(id = R.drawable.expand_circle_down_24px),
+                        contentDescription = null
+                    )
+                }
+            }
+        }
+        AnimatedVisibility(
+            visible = showHotword,
+            enter = expandVertically(
+                expandFrom = Alignment.Top
+            ) + fadeIn(),
+            exit = shrinkVertically(
+                shrinkTowards = Alignment.Top
+            ) + fadeOut()
+        ) {
+            LazyColumn(
+                modifier = Modifier,
+                contentPadding = PaddingValues(vertical = 4.dp)
+            ) {
+                itemsIndexed(hotwords) { _, hotword ->
+                    SearchKeyword(
+                        modifier = Modifier,
+                        keyword = hotword.showName,
+                        leadingIcon = hotword.icon ?: "",
+                        onClick = { onSearch(hotword.showName) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun SearchSuggestion(
+    modifier: Modifier = Modifier,
+    suggests: List<String>,
+    onSearch: (String) -> Unit
+) {
+    Column(
+        modifier = modifier
+            .width(250.dp)
+            .fillMaxHeight()
+            .focusGroup(),
+    ) {
+        Text(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            text = stringResource(R.string.search_input_suggest),
+            style = MaterialTheme.typography.titleLarge
+        )
+        LazyColumn(
+            modifier = Modifier,
+            contentPadding = PaddingValues(vertical = 4.dp)
+        ) {
+            itemsIndexed(suggests) { _, suggest ->
+                SearchKeyword(
+                    modifier = Modifier,
+                    keyword = suggest,
+                    leadingIcon = "",
+                    onClick = { onSearch(suggest) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchHistory(
+    modifier: Modifier = Modifier,
+    histories: List<SearchHistoryDB>,
+    onSearch: (String) -> Unit,
+    onDelete: (SearchHistoryDB) -> Unit,
+    onDeleteAll: () -> Unit
+) {
+    val focusManager = LocalFocusManager.current
+
+    var deleteMode by remember { mutableStateOf(false) }
+    var showDeleteAllConfirmDialog by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = modifier
+            .width(250.dp)
+            .focusGroup(),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                text = stringResource(R.string.search_input_history),
+                style = MaterialTheme.typography.titleLarge
+            )
+            Row {
+                if (deleteMode) {
+                    IconButton(
+                        onClick = { showDeleteAllConfirmDialog = true },
+                        colors = ButtonDefaults.colors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        )
+                    ) {
+                        Icon(imageVector = Icons.Default.DeleteSweep, contentDescription = null)
+                    }
+                }
+                IconButton(
+                    onClick = { deleteMode = !deleteMode },
+                    colors = ButtonDefaults.colors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    )
+                ) {
+                    if (deleteMode) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = null)
+                    } else {
+                        Icon(imageVector = Icons.Default.Delete, contentDescription = null)
+                    }
+                }
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier.height(SearchHistoryListHeight),
+            contentPadding = PaddingValues(vertical = SearchHistoryListContentVerticalPadding)
+        ) {
+            itemsIndexed(histories) { index, searchHistory ->
+                SearchKeyword(
+                    modifier = Modifier,
+                    keyword = searchHistory.keyword,
+                    leadingIcon = "",
+                    onClick = {
+                        if (deleteMode) {
+                            if (index == histories.lastIndex) {
+                                focusManager.moveFocus(FocusDirection.Up)
+                            }
+                            onDelete(searchHistory)
+                        } else {
+                            onSearch(searchHistory.keyword)
+                        }
+                    },
+                    trailingIcon = (@Composable {
+                        Icon(
+                            modifier = Modifier.size(16.dp),
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = null
+                        )
+                    }).takeIf { deleteMode }
+                )
+            }
+        }
+    }
+
+    if (showDeleteAllConfirmDialog) {
+        TvAlertDialog(
+            onDismissRequest = { showDeleteAllConfirmDialog = false },
+            title = {
+                Text(text = stringResource(R.string.search_input_history_delete_all_confirm_dialog_title))
+            },
+            text = {
+                Text(text = stringResource(R.string.search_input_history_delete_all_confirm_dialog_text))
+            },
+            confirmButton = {
+                val confirm = {
+                    onDeleteAll()
+                    showDeleteAllConfirmDialog = false
+                    deleteMode = false
+                }
+                Button(
+                    onClick = confirm,
+                    modifier = Modifier.touchClick(confirm)
+                ) {
+                    Text(text = stringResource(R.string.search_input_history_delete_all_confirm_dialog_confirm_button))
+                }
+            },
+            dismissButton = {
+                val dismiss = { showDeleteAllConfirmDialog = false }
+                Button(
+                    onClick = dismiss,
+                    modifier = Modifier.touchClick(dismiss)
+                ) {
+                    Text(text = stringResource(R.string.search_input_history_delete_all_confirm_dialog_cancel_button))
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SearchPhoneInputQr(
+    modifier: Modifier = Modifier
+) {
+    val url = remember { HttpServer.getSearchInputUrl() }
+    var qrImage by remember { mutableStateOf<ImageBitmap?>(null) }
+
+    LaunchedEffect(url) {
+        val output = ByteArrayOutputStream()
+        QRCode(url).render().writeImage(output)
+        val input = ByteArrayInputStream(output.toByteArray())
+        qrImage = BitmapFactory.decodeStream(input).asImageBitmap()
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = "手机扫码输入",
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            style = MaterialTheme.typography.titleMedium
+        )
+        qrImage?.let { image ->
+            Image(
+                modifier = Modifier
+                    .size(112.dp)
+                    .background(MaterialTheme.colorScheme.onSurface)
+                    .padding(8.dp),
+                bitmap = image,
+                contentDescription = null
+            )
+        }
+        Text(
+            modifier = Modifier.padding(horizontal = 4.dp),
+            text = url,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+}
+
+@Preview(device = "id:tv_1080p")
+@Preview(device = "id:tv_1080p", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun SearchInputScreenContentPreview() {
+    BVTheme {
+        Row {
+            Spacer(
+                modifier = Modifier
+                    .width(80.dp)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            )
+            SearchInputScreenContent(
+                modifier = Modifier,
+                defaultFocusRequester = FocusRequester.Default,
+                searchKeyword = "",
+                onSearchKeywordChange = {},
+                onSearch = {},
+                showProxyOptions = true,
+                enableProxy = false,
+                onEnableProxyChange = {},
+                hotwords = listOf(
+                    Hotword("热搜1", "热搜1", null),
+                    Hotword("热搜2", "热搜2", null)
+                ),
+                suggests = listOf("建议1", "建议2"),
+                histories = listOf(
+                    SearchHistoryDB(keyword = "历史1"),
+                    SearchHistoryDB(keyword = "历史2")
+                ),
+                onDeleteHistory = {},
+                onDeleteAllHistories = {}
+            )
+        }
+    }
+}

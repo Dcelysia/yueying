@@ -1,0 +1,31 @@
+[versions]
+agp = "8.8.0"
+firebase-crashlytics = "2.9.9"
+gms = "4.4.2"
+kotlin = "2.1.21"
+ksp = "2.1.21-2.0.1"
+protobuf = "0.9.5"
+versions = "0.52.0"
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+
+# https://firebase.google.com/docs/crashlytics/get-started?platform=android
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebase-crashlytics" }
+
+# https://github.com/google/ksp
+google-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+
+# https://developers.google.com/android/guides/google-services-plugin
+google-services = { id = "com.google.gms.google-services", version.ref = "gms" }
+
+# https://github.com/google/protobuf-gradle-plugin
+google-protobuf = { id = "com.google.protobuf", version.ref = "protobuf" }
+
+# https://github.com/ben-manes/gradle-versions-plugin
+versions = { id = "com.github.ben-manes.versions", version.ref = "versions" }

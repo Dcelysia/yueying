@@ -1,0 +1,39 @@
+*.iml
+.gradle/
+/local.properties
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+/signing.properties
+/.idea/jarRepositories.xml
+/.idea/migrations.xml
+/.idea/codeStyles/
+
+# Local Kotlin/agent/tool state
+.kotlin/
+buildSrc/.kotlin/
+.superpowers/
+.agents/
+skills-lock.json
+tmp/
+/docs/
+/scripts/render_bilitv_drawables.py
+/scripts/render_icon_candidates.py
+/scripts/icon_lab/
+/brand-assets/
+
+# Logs, diagnostics, and local previews
+*.log
+*.hprof
+*.heapsnapshot
+hs_err_pid*
+replay_pid*
+
+# Signing keys and private release material
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key

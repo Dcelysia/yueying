@@ -1,0 +1,193 @@
+package dev.aaa1115910.biliapi.http
+
+import dev.aaa1115910.biliapi.http.entity.BiliResponse
+import dev.aaa1115910.biliapi.http.entity.search.SearchResultData
+import dev.aaa1115910.biliapi.http.entity.video.PlayUrlData
+import dev.aaa1115910.biliapi.http.entity.video.PlayUrlV2Data
+import dev.aaa1115910.biliapi.http.plugins.BiliUserAgent
+import dev.aaa1115910.biliapi.http.util.encApiSign
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.HttpRequestRetry
+import io.ktor.client.plugins.compression.ContentEncoding
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.parameter
+import io.ktor.http.URLProtocol
+import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.json.Json
+
+object BiliHttpProxyApi {
+    private var client: HttpClient? = null
+
+    private val json = Json {
+        coerceInputValues = true
+        ignoreUnknownKeys = true
+        prettyPrint = true
+    }
+
+    fun createClient(proxyServer: String) {
+        client = HttpClient(OkHttp) {
+            BiliUserAgent()
+            install(ContentNegotiation) {
+                json(json)
+            }
+            install(ContentEncoding) {
+                deflate(1.0F)
+                gzip(0.9F)
+            }
+            install(HttpRequestRetry) {
+                retryOnException(maxRetries = 2)
+            }
+            defaultRequest {
+                url {
+                    val proxyServerSpilt = proxyServer.split(":")
+                    val endPoint = proxyServerSpilt.first()
+                    val port = proxyServerSpilt.getOrNull(1)?.toInt()
+                    host = endPoint
+                    if (endPoint == "127.0.0.1") {
+                        //local debug
+                        this.port = 8080
+                    } else {
+                        if (port != null) {
+                            this.port = port
+                        } else {
+                            protocol = URLProtocol.HTTPS
+                        }
+                    }
+                }
+            }
+        }.apply {
+            encApiSign()
+        }
+    }
+
+    suspend fun getPgcVideoPlayUrl(
+        av: Long? = null,
+        bv: String? = null,
+        epid: Int? = null,
+        cid: Long? = null,
+        qn: Int? = null,
+        fnval: Int? = null,
+        fnver: Int? = null,
+        fourk: Int? = null,
+        session: String? = null,
+        supportMultiAudio: Boolean? = null,
+        drmTechType: Int? = null,
+        fromClient: String? = null,
+        curLanguage: String? = null,
+        sessData: String? = null,
+        dedeUserID: Long? = null,
+        buvid3: String? = null
+    ): BiliResponse<PlayUrlData> = client?.get("/pgc/player/web/playurl") {
+        val cookieParts = mutableListOf<String>()
+        sessData?.let { cookieParts.add("SESSDATA=$it") }
+        dedeUserID?.let { cookieParts.add("DedeUserID=$it") }
+        buvid3?.let { cookieParts.add("buvid3=$it") }
+        val cookieString = cookieParts.joinToString(";")
+        require(av != null || bv != null) { "av and bv cannot be null at the same time" }
+        require(epid != null || cid != null) { "epid and cid cannot be null at the same time" }
+        av?.let { parameter("avid", it) }
+        bv?.let { parameter("bvid", it) }
+        epid?.let { parameter("ep_id", it) }
+        cid?.let { parameter("cid", it) }
+        qn?.let { parameter("qn", it) }
+        fnval?.let { parameter("fnval", it) }
+        fnver?.let { parameter("fnver", it) }
+        fourk?.let { parameter("fourk", it) }
+        session?.let { parameter("session", it) }
+        supportMultiAudio?.let { parameter("support_multi_audio", it) }
+        drmTechType?.let { parameter("drm_tech_type", it) }
+        fromClient?.let { parameter("from_client", it) }
+        curLanguage?.takeIf { it.isNotBlank() }?.let { parameter("cur_language", it) }
+        if (cookieParts.isNotEmpty()) header("Cookie", cookieString)
+        //必须得加上 referer 才能通过账号身份验证
+        header("referer", "https://www.bilibili.com")
+    }?.body() ?: throw IllegalStateException("no proxy server")
+
+    suspend fun getPgcVideoPlayUrlV2(
+        av: Long? = null,
+        bv: String? = null,
+        epid: Int? = null,
+        cid: Long? = null,
+        qn: Int? = null,
+        fnval: Int? = null,
+        fnver: Int? = null,
+        fourk: Int? = null,
+        session: String? = null,
+        supportMultiAudio: Boolean? = null,
+        drmTechType: Int? = null,
+        fromClient: String? = null,
+        curLanguage: String? = null,
+        sessData: String? = null,
+        uidCkMd5: String? = null,
+        dedeUserID: Long? = null,
+        buvid3: String? = null
+    ): BiliResponse<PlayUrlV2Data> = client?.get("/pgc/player/web/v2/playurl") {
+        val cookieParts = mutableListOf<String>()
+        sessData?.let { cookieParts.add("SESSDATA=$it") }
+        dedeUserID?.let { cookieParts.add("DedeUserID=$it") }
+        uidCkMd5?.takeIf { it.isNotBlank() }?.let { cookieParts.add("DedeUserID__ckMd5=$it") }
+        buvid3?.let { cookieParts.add("buvid3=$it") }
+        val cookieString = cookieParts.joinToString(";")
+        require(av != null || bv != null) { "av and bv cannot be null at the same time" }
+        require(epid != null || cid != null) { "epid and cid cannot be null at the same time" }
+        av?.let { parameter("avid", it) }
+        bv?.let { parameter("bvid", it) }
+        epid?.let { parameter("ep_id", it) }
+        cid?.let { parameter("cid", it) }
+        qn?.let { parameter("qn", it) }
+        fnval?.let { parameter("fnval", it) }
+        fnver?.let { parameter("fnver", it) }
+        fourk?.let { parameter("fourk", it) }
+        session?.let { parameter("session", it) }
+        supportMultiAudio?.let { parameter("support_multi_audio", it) }
+        drmTechType?.let { parameter("drm_tech_type", it) }
+        fromClient?.let { parameter("from_client", it) }
+        curLanguage?.takeIf { it.isNotBlank() }?.let { parameter("cur_language", it) }
+        if (cookieParts.isNotEmpty()) header("Cookie", cookieString)
+        //必须得加上 referer 才能通过账号身份验证
+        header("referer", "https://www.bilibili.com")
+        header("Origin", "https://www.bilibili.com")
+    }?.body() ?: throw IllegalStateException("no proxy server")
+
+    /**
+     * 分类搜索与[keyword]相关的[type]类型的相关结果
+     */
+    suspend fun searchType(
+        keyword: String,
+        type: String,
+        page: Int = 1,
+        pageSize: Int = 20,
+        tid: Int? = null,
+        order: String? = null,
+        duration: Int? = null,
+        buvid3: String? = null,
+        sessData: String? = null
+    ): BiliResponse<SearchResultData> = client?.get("/x/web-interface/wbi/search/type") {
+        parameter("keyword", keyword)
+        parameter("search_type", type)
+        parameter("page", page)
+        parameter("pagesize", pageSize)
+        parameter("platform", "pc")
+        parameter("highlight", 1)
+        parameter("single_column", 0)
+        parameter("source_tag", 3)
+        parameter("web_location", 1430654)
+        parameter("dm_img_list", "[]")
+        parameter("dm_img_str", "V2ViR0wgMS4wIChPcGVuR0wgRVMgMi4wIENocm9taXVtKQ")
+        parameter("dm_cover_img_str", "QU5HTEUgKEFNRCwgQU1EIFJhZGVvbiA3ODBNIEdyYXBoaWNzICgweDAwMDAxNUJGKSBEaXJlY3QzRDExIHZzXzVfMCBwc181XzAsIEQzRDExKUdvb2dsZSBJbmMuIChBTU")
+        parameter("dm_img_inter", "{\"ds\":[],\"wh\":[4769,2793,43],\"of\":[285,570,285]}")
+        tid?.let { parameter("tids", it) }
+        order?.let { parameter("order", it) }
+        duration?.let { parameter("duration", it) }
+        val cookieParts = mutableListOf<String>()
+        buvid3?.takeIf { it.isNotBlank() }?.let { cookieParts.add("buvid3=$it") }
+        sessData?.takeIf { it.isNotBlank() }?.let { cookieParts.add("SESSDATA=$it") }
+        if (cookieParts.isNotEmpty()) header("Cookie", cookieParts.joinToString("; "))
+        header("referer", "https://search.bilibili.com/")
+    }?.body() ?: throw IllegalStateException("no proxy server")
+}

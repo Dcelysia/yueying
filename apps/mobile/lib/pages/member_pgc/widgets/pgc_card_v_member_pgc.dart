@@ -1,0 +1,58 @@
+import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/common/widgets/image/image_save.dart';
+import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
+import 'package:PiliPlus/models_new/space/space_archive/item.dart';
+import 'package:PiliPlus/utils/page_utils.dart';
+import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:material_ui/material_ui.dart';
+
+// 视频卡片 - 垂直布局
+class PgcCardVMemberPgc extends StatelessWidget {
+  const PgcCardVMemberPgc(this.item, {super.key});
+
+  final SpaceArchiveItem item;
+
+  void onLongPress() => showPgcCover(title: item.title, cover: item.cover);
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
+      child: InkWell(
+        borderRadius: Style.mdRadius,
+        onTap: () => PageUtils.viewPgc(seasonId: item.param),
+        onLongPress: onLongPress,
+        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: Style.aspectRatio3x4,
+              child: LayoutBuilder(
+                builder: (context, boxConstraints) {
+                  return NetworkImgLayer(
+                    src: item.cover,
+                    width: boxConstraints.maxWidth,
+                    height: boxConstraints.maxHeight,
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 5, 0, 3),
+              child: Text(
+                item.title,
+                textAlign: TextAlign.start,
+                style: const TextStyle(
+                  letterSpacing: 0.3,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

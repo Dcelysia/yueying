@@ -1,0 +1,107 @@
+extension NullableIterableExt<T> on Iterable<T>? {
+  bool get isNullOrEmpty => this == null || this!.isEmpty;
+}
+
+extension IterableExt<T> on Iterable<T> {
+  T? reduceOrNull(T Function(T value, T element) combine) {
+    Iterator<T> iterator = this.iterator;
+    if (!iterator.moveNext()) {
+      return null;
+    }
+    T value = iterator.current;
+    while (iterator.moveNext()) {
+      value = combine(value, iterator.current);
+    }
+    return value;
+  }
+
+  Iterable<List<R>> mapChunked<R>(int size, R Function(T e) toElement) sync* {
+    Iterator<T> iterator = this.iterator;
+    List<R> buffer = [];
+    while (iterator.moveNext()) {
+      buffer.add(toElement(iterator.current));
+      if (buffer.length == size) {
+        yield buffer;
+        buffer = [];
+      }
+    }
+    if (buffer.isNotEmpty) yield buffer;
+  }
+}
+
+extension ListExt<T> on List<T> {
+  bool removeFirstWhere(bool Function(T) test) {
+    final index = indexWhere(test);
+    if (index != -1) {
+      removeAt(index);
+      return true;
+    }
+    return false;
+  }
+
+  List<R> fromCast<R>() {
+    return List<R>.from(this);
+  }
+
+  T findTargetMedia(
+    int Function(T) test,
+    int preferId,
+  ) {
+    T? selected;
+    int selectedId = -1;
+    T? lowest;
+    int lowestId = 1 << 31;
+    for (final e in this) {
+      final id = test(e);
+      if (id <= preferId && id > selectedId) {
+        selected = e;
+        selectedId = id;
+      }
+      if (id < lowestId) {
+        lowest = e;
+        lowestId = id;
+      }
+    }
+    return selected ?? lowest ?? first;
+  }
+
+  /// from [algorithms.lowerBoundBy].
+  int lowerBoundByKey<K extends Comparable<K>>(
+    K Function(T element) keyOf,
+    K key, [
+    int start = 0,
+    int? end,
+  ]) {
+    end = RangeError.checkValidRange(start, end, length);
+    var min = start;
+    var max = end;
+    while (min < max) {
+      var mid = min + ((max - min) >> 1);
+      var element = this[mid];
+      var comp = keyOf(element).compareTo(key);
+      if (comp < 0) {
+        min = mid + 1;
+      } else {
+        max = mid;
+      }
+    }
+    return min;
+  }
+
+  T? getOrNull(int index) {
+    if (index < 0 || index >= length) return null;
+    return this[index];
+  }
+
+  T getOrFirst(int index) {
+    return getOrNull(index) ?? first;
+  }
+
+  void insertOrAdd(int index, T element) {
+    if (length <= index) {
+      add(element);
+    } else {
+      insert(index, element);
+    }
+  }
+}

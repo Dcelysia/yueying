@@ -1,0 +1,14 @@
+name: bili_remote_core
+description: Shared TV discovery, playback protocol and session state for Bili Remote.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  get: ^4.6.6
+  hive_ce: ^2.19.3
+  connectivity_plus: '>=6.1.0 <8.0.0'

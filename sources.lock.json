@@ -1,0 +1,39 @@
+{
+  "PiliPlus": {
+    "url": "https://github.com/bggRGjQaUbCoE/PiliPlus.git",
+    "commit": "1edcc46777619cbbda3049363554a4cbbb453ee0",
+    "path": "apps/mobile"
+  },
+  "NeoBV": {
+    "url": "https://github.com/b1ackmarket/NeoBV.git",
+    "commit": "6c8ce4bbf82f43681cc6c5e46cd4f8c9b9b71bf6",
+    "path": "apps/tv"
+  },
+  "bv-libs": {
+    "url": "https://github.com/aaa1115910/bv-libs.git",
+    "commit": "77fce7f6667c6669302e677bbe6b3226eefd53b1",
+    "path": "apps/tv/libs"
+  },
+  "Flutter": {
+    "version": "3.47.7",
+    "commit": "abaf9c523780a608bd46686fd5e53740a07077f8",
+    "macosArm64Sha256": "dd9da574c3168460550117eb0e8dd0313ae934fabf64a82a6d557fff5fd1422e"
+  },
+  "material_ui": {
+    "version": "1.8.0",
+    "archiveSha256": "e4031746f96c8316864d9b92bce375f1320a36ed56e166307e1e1bda9d90b4ab",
+    "path": "third_party/material_ui",
+    "patches": "PiliPlus lib/scripts/material (Android set)"
+  },
+  "grpcJavaCodeGenerator": {
+    "version": "1.72.0",
+    "url": "https://github.com/grpc/grpc-java/tree/v1.72.0"
+  },
+  "AkDanmaku": {
+    "url": "https://github.com/Frost819/AkDanmaku.git",
+    "commit": "f599e1b6fe4d12ea27d6c6becd5d12fad20b046b",
+    "version": "1.0.2",
+    "path": "apps/tv/akdanmaku",
+    "patches": "README.md"
+  }
+}

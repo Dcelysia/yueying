@@ -1,0 +1,88 @@
+package dev.aaa1115910.bv.util
+
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.LruCache
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.unit.IntRect
+import dev.aaa1115910.biliapi.entity.video.VideoShot
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import java.util.concurrent.ConcurrentHashMap
+
+suspend fun VideoShot.getSpriteFrame(time: Int, cache: VideoShotImageCache): SpriteFrame {
+    val index = findClosestValueIndex(times, time.toUShort())
+    val singleImgCount = imageCountX * imageCountY
+    val imagesIndex = index / singleImgCount
+    val imageIndex = index % singleImgCount
+
+    // 使用传入的 cache 实例，而不是全局单例
+    val spriteSheet = cache.getOrDecodeImage(
+        imagesIndex,
+        images[imagesIndex]!!
+    ).asImageBitmap()
+
+    val cellWidth = spriteSheet.width / imageCountX
+    val cellHeight = spriteSheet.height / imageCountY
+
+    // 计算该帧在大图中的具体坐标
+    val left = (imageIndex % imageCountX) * cellWidth
+    val top = (imageIndex / imageCountX) * cellHeight
+
+    return SpriteFrame(
+        spriteSheet = spriteSheet,
+        srcRect = IntRect(left, top, left + cellWidth, top + cellHeight)
+    )
+}
+
+private fun findClosestValueIndex(array: List<UShort>, target: UShort): Int {
+    var left = 0
+    var right = array.size - 1
+    while (left < right) {
+        val mid = left + (right - left) / 2
+        if (array[mid] < target) {
+            left = mid + 1
+        } else {
+            right = mid
+        }
+    }
+    return left
+}
+
+class VideoShotImageCache {
+    private val memoryCache = LruCache<Int, Bitmap>(3) // 缓存3张大图
+    private val activeTasks = ConcurrentHashMap<Int, Deferred<Bitmap>>()
+
+    companion object {
+        val bitmapOptions = BitmapFactory.Options().apply {
+            inPreferredConfig = Bitmap.Config.RGB_565
+            inScaled = false
+        }
+    }
+
+    suspend fun getOrDecodeImage(imagesIndex: Int, imageData: ByteArray): Bitmap = coroutineScope {
+        memoryCache.get(imagesIndex)?.let { return@coroutineScope it }
+
+        val task = activeTasks.getOrPut(imagesIndex) {
+            async(Dispatchers.IO) {
+                val decoded = BitmapFactory.decodeByteArray(imageData, 0, imageData.size, bitmapOptions)
+                memoryCache.put(imagesIndex, decoded)
+                decoded
+            }
+        }
+        try {
+            return@coroutineScope task.await()
+        } finally {
+            activeTasks.remove(imagesIndex)
+        }
+    }
+}
+
+// 包装了大图（精灵图）和小图对应的矩形区域
+data class SpriteFrame(
+    val spriteSheet: ImageBitmap,
+    val srcRect: IntRect
+)

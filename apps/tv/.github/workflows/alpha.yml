@@ -1,0 +1,151 @@
+name: Alpha Build
+
+on:
+  push:
+    branches:
+      - feature
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-alpha:
+    name: Build Alpha Apk
+    runs-on: macos-latest
+    if: github.repository == 'b1ackmarket/NeoBV'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          submodules: 'true'
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle to generate and submit dependency graphs
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          dependency-graph: generate-and-submit
+
+      - name: Write google-services.json
+        env:
+          DATA: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$DATA" ]; then
+            printf '%s' "$DATA" > app/google-services.json
+          else
+            echo "GOOGLE_SERVICES_JSON is empty; building without Firebase."
+          fi
+
+      - name: Validate google-services.json
+        run: node .github/scripts/validate-google-services.js
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Add signing properties
+        env:
+          SIGNING_PROPERTIES: ${{ secrets.SIGNING_PROPERTIES }}
+        run: |
+          printf '%s' "$SIGNING_PROPERTIES" | base64 -D > signing.properties
+          perl -0pi -e 's#^releaseStoreFile=.*$#releaseStoreFile=key.jks#m; s#^debugStoreFile=.*$#debugStoreFile=key.jks#m' signing.properties
+
+      - name: Add jks file
+        env:
+          SIGN_KEY: ${{ secrets.SIGN_KEY }}
+        run: |
+          printf '%s' "$SIGN_KEY" | base64 -D > key.jks
+
+      - name: Verify signing key
+        run: |
+          KEYSTORE_PASSWORD="$(sed -n 's/^releaseStorePassword=//p' signing.properties | head -n1)"
+          keytool -list -keystore key.jks -storepass "$KEYSTORE_PASSWORD" >/dev/null
+
+      - name: Build apk
+        run: ./gradlew assembleDefaultAlpha assembleDefaultDebug
+
+      - name: Parse apk infos
+        id: apk-infos
+        run: |
+          alpha_meta=app/build/outputs/apk/default/alpha/output-metadata.json
+          alpha_debug_meta=app/build/outputs/apk/default/debug/output-metadata.json
+          echo "alpha_info_version_code=$(jq -r '.elements[0].versionCode' "$alpha_meta")" >> "$GITHUB_ENV"
+          echo "alpha_info_version_name=$(jq -r '.elements[0].versionName' "$alpha_meta")" >> "$GITHUB_ENV"
+          echo "alpha_debug_info_version_code=$(jq -r '.elements[0].versionCode' "$alpha_debug_meta")" >> "$GITHUB_ENV"
+          echo "alpha_debug_info_version_name=$(jq -r '.elements[0].versionName' "$alpha_debug_meta")" >> "$GITHUB_ENV"
+
+      - name: Determine tag name
+        id: tag_name
+        run: echo "tag_name=alpha" >> $GITHUB_ENV
+
+      - name: Get changelog
+        id: changelog
+        run: |
+          {
+            echo "changelog<<EOF"
+            echo "$(git log --pretty=format:"- %s (%h)" ${{ github.event.before }}..${{ github.sha }})"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+      # upload artifacts alpha debug
+
+      - name: Archive alpha debug build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Alpha debug build artifact
+          path: app/build/outputs/apk/default/debug/NeoBV_${{ env.alpha_debug_info_version_code }}_${{ env.alpha_debug_info_version_name }}_default_universal.apk
+
+      # upload artifacts alpha
+
+      - name: Archive default alpha build mappings
+        uses: actions/upload-artifact@v7
+        with:
+          name: Alpha build mappings
+          path: app/build/outputs/mapping/defaultAlpha
+
+      - name: Archive alpha build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Alpha build artifact
+          path: app/build/outputs/apk/default/alpha/NeoBV_${{ env.alpha_info_version_code }}_${{ env.alpha_info_version_name }}_default_universal.apk
+
+      # zip mapping because softprops/action-gh-release can't upload folder
+
+      - name: Zip mapping
+        run: zip -rj mapping.zip app/build/outputs/mapping/defaultAlpha
+
+      - name: Remove previous alpha pre-releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
+            --jq '.[] | select(.prerelease and (.tag_name == "alpha" or (.tag_name | startswith("alpha-r")))) | .tag_name' |
+          while IFS= read -r tag; do
+            if [ -n "$tag" ]; then
+              gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+            fi
+          done
+
+      # upload to github release
+
+      - name: Publish Pre-Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            app/build/outputs/apk/default/debug/NeoBV_${{ env.alpha_debug_info_version_code }}_${{ env.alpha_debug_info_version_name }}_default_universal.apk
+            app/build/outputs/apk/default/alpha/NeoBV_${{ env.alpha_info_version_code }}_${{ env.alpha_info_version_name }}_default_universal.apk
+            mapping.zip
+          tag_name: ${{ env.tag_name }}
+          name: ${{ env.alpha_info_version_name }}
+          prerelease: true
+          body: ${{ env.changelog }}
+          target_commitish: ${{ github.sha }}

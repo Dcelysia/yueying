@@ -1,0 +1,11 @@
+/dist/
+/toolchains/
+**/local.properties
+**/key.properties
+*.jks
+*.keystore
+.DS_Store
+
+__pycache__/
+**/signing.properties
+/.private/

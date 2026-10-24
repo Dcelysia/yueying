@@ -1,0 +1,283 @@
+package dev.aaa1115910.bv.cast
+
+import android.content.Context
+import android.content.Intent
+import android.os.SystemClock
+import dev.aaa1115910.biliapi.repositories.SearchRepository
+import dev.aaa1115910.biliapi.repositories.VideoDetailRepository
+import dev.aaa1115910.biliapi.util.AvBvConverter
+import dev.aaa1115910.bv.activities.live.LivePlayerActivity
+import dev.aaa1115910.bv.activities.video.VideoPlayerV3Activity
+import dev.aaa1115910.bv.cast.protocol.CastClientHint
+import dev.aaa1115910.bv.cast.protocol.CastContent
+import dev.aaa1115910.bv.util.Prefs
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
+import org.koin.java.KoinJavaComponent.getKoin
+
+class CastPlaybackLauncher(
+    private val appContext: Context,
+    private val dependencies: Dependencies = Dependencies()
+) {
+    private val logger = KotlinLogging.logger("CastPlaybackLauncher")
+    private var lastLaunch: LastLaunch? = null
+
+    suspend fun launch(content: CastContent): Boolean = withContext(dependencies.mainDispatcher) {
+        if (!content.remotePlayback && isDuplicateLaunch(content)) {
+            logger.info { "Skip duplicate cast launch: $content" }
+            return@withContext true
+        }
+
+        dependencies.pauseCurrentPlayback()
+
+        when {
+            content.hasLiveIdentity -> {
+                launchLive(content)
+                true
+            }
+
+            content.hasVideoIdentity -> launchVideo(content)
+
+            content.hasDirectMedia -> {
+                launchDirectMediaOrResolvedPiliPlus(content)
+            }
+
+            else -> false
+        }
+    }
+
+    private fun launchLive(content: CastContent) {
+        val roomId = content.roomId ?: return
+        logger.info { "Launch live from cast: roomId=$roomId" }
+        appContext.startActivity(
+            Intent(appContext, LivePlayerActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                putExtra("room_id", roomId)
+                putExtra("title", content.title ?: "投屏直播 $roomId")
+                putExtra("up_name", "")
+                putExtra("online", 0)
+                content.danmakuEnabled?.let { putExtra("danmaku_enabled", it) }
+            }
+        )
+    }
+
+    private suspend fun launchDirectMediaOrResolvedPiliPlus(content: CastContent): Boolean {
+        val resolved = resolvePiliPlusUgc(content)
+        if (resolved != null) {
+            launchResolvedVideo(
+                content = content,
+                resolved = ResolvedVideo(
+                    aid = resolved.aid,
+                    cid = resolved.cid,
+                    epid = null,
+                    seasonId = null,
+                    title = resolved.title,
+                    partTitle = resolved.partTitle
+                )
+            )
+            return true
+        }
+
+        launchDirectMedia(content)
+        return true
+    }
+
+    private suspend fun resolvePiliPlusUgc(content: CastContent): PiliPlusResolvedVideo? {
+        if (content.clientHint != CastClientHint.PiliPlus) return null
+        if (!dependencies.enablePiliPlusCastCompat()) {
+            logger.info { "PiliPlus cast compat disabled, use direct DLNA media" }
+            return null
+        }
+        return withContext(dependencies.ioDispatcher) {
+            dependencies.piliPlusResolver().resolve(content)
+        }
+    }
+
+    private fun launchDirectMedia(content: CastContent) {
+        val url = content.directMediaUrl ?: return
+        logger.info { "Launch direct media from cast: url=$url" }
+        appContext.startActivity(
+            Intent(appContext, VideoPlayerV3Activity::class.java).apply {
+                // Standard launch mode + CLEAR_TOP recreates the player and consumes the new media extras.
+                // NEW_TASK alone can only bring the existing player task forward after it was paused.
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra("external_media_url", url)
+                putExtra("title", content.title ?: "投屏视频")
+                putExtra("played", content.seekSeconds.toPlayedMillis())
+                putExtra("external_media_bilibili", content.isBilibiliDirectMedia)
+                putExtra("external_media_type", content.directMediaType.name)
+                putExtra("external_media_cover", content.directMediaCover.orEmpty())
+                putExtra("external_media_creator", content.creator.orEmpty())
+                content.playSpeed?.let { putExtra("play_speed", it) }
+            }
+        )
+    }
+
+    private suspend fun launchVideo(content: CastContent): Boolean {
+        val repository = dependencies.videoDetailRepository()
+        val resolved = withContext(dependencies.ioDispatcher) {
+            resolveVideo(content, repository)
+        } ?: return false
+
+        launchResolvedVideo(content, resolved)
+        return true
+    }
+
+    private fun launchResolvedVideo(content: CastContent, resolved: ResolvedVideo) {
+        logger.info {
+            "Launch video from cast: aid=${resolved.aid}, cid=${resolved.cid}, epid=${resolved.epid}, seasonId=${resolved.seasonId}"
+        }
+        appContext.startActivity(
+            Intent(appContext, VideoPlayerV3Activity::class.java).apply {
+                // Standard launch mode + CLEAR_TOP recreates the player and consumes the new media extras.
+                // NEW_TASK alone can only bring the existing player task forward after it was paused.
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra("remote_playback_id", content.rawFields["remote_playback_id"])
+                putExtra("remote_playback", content.remotePlayback)
+                putExtra("avid", resolved.aid)
+                putExtra("cid", resolved.cid)
+                putExtra("title", resolved.title)
+                putExtra("partTitle", resolved.partTitle)
+                putExtra("played", content.seekSeconds.toPlayedMillis())
+                putExtra("fromSeason", resolved.epid != null || resolved.seasonId != null)
+                putExtra("epid", resolved.epid ?: 0)
+                putExtra("seasonId", resolved.seasonId ?: 0)
+                content.playSpeed?.let { putExtra("play_speed", it) }
+                content.danmakuEnabled?.let { putExtra("danmaku_enabled", it) }
+            }
+        )
+    }
+
+    private suspend fun resolveVideo(
+        content: CastContent,
+        repository: VideoDetailRepository
+    ): ResolvedVideo? {
+        val aid = content.aid
+            ?: content.bvid?.let { runCatching { AvBvConverter.bv2av(it) }.getOrNull() }
+
+        if (aid != null && aid > 0L && content.cid != null && content.cid > 0L) {
+            return ResolvedVideo(
+                aid = aid,
+                cid = content.cid,
+                epid = content.epid,
+                seasonId = content.seasonId,
+                title = content.title ?: "投屏视频",
+                partTitle = content.partTitle ?: ""
+            )
+        }
+
+        if (content.epid != null || content.seasonId != null) {
+            val season = runCatching {
+                repository.getPgcVideoDetail(
+                    epid = content.epid,
+                    seasonId = content.seasonId,
+                    preferApiType = Prefs.playbackApiType
+                )
+            }.onFailure {
+                logger.warn(it) { "Resolve PGC cast content failed: epid=${content.epid}, seasonId=${content.seasonId}" }
+            }.getOrNull()
+            val episode = season?.episodes?.firstOrNull { episode ->
+                (content.epid != null && episode.epid == content.epid) ||
+                    (aid != null && episode.aid == aid) ||
+                    (content.cid != null && episode.cid == content.cid)
+            } ?: season?.episodes?.firstOrNull()
+            if (season != null && episode != null) {
+                return ResolvedVideo(
+                    aid = episode.aid,
+                    cid = episode.cid,
+                    epid = episode.epid ?: content.epid,
+                    seasonId = season.seasonId,
+                    title = content.title ?: season.title,
+                    partTitle = content.partTitle ?: episode.longTitle.ifBlank { episode.title }
+                )
+            }
+        }
+
+        if (aid != null && aid > 0L) {
+            val detail = runCatching {
+                repository.getVideoDetail(aid = aid, preferApiType = Prefs.playbackApiType)
+            }.onFailure {
+                logger.warn(it) { "Resolve UGC cast content failed: aid=$aid" }
+            }.getOrNull()
+            if (detail != null) {
+                val requestedPage = content.rawFields["remote_page"]?.toIntOrNull()
+                if (requestedPage != null && requestedPage > detail.pages.size && detail.pages.isNotEmpty()) return null
+                val page = content.cid?.let { cid -> detail.pages.firstOrNull { it.cid == cid } }
+                    ?: requestedPage?.let { detail.pages.getOrNull(it - 1) }
+                    ?: detail.pages.firstOrNull { it.cid == detail.cid }
+                    ?: detail.pages.firstOrNull()
+                return ResolvedVideo(
+                    aid = detail.aid,
+                    cid = page?.cid ?: detail.cid,
+                    epid = content.epid ?: detail.epid,
+                    seasonId = content.seasonId,
+                    title = content.title ?: detail.title,
+                    partTitle = content.partTitle ?: page?.title.orEmpty()
+                )
+            }
+        }
+
+        return null
+    }
+
+    private fun isDuplicateLaunch(content: CastContent): Boolean {
+        val now = dependencies.elapsedRealtime()
+        val key = listOf(
+            content.aid,
+            content.bvid,
+            content.cid,
+            content.epid,
+            content.seasonId,
+            content.roomId,
+            content.seekSeconds,
+            content.playSpeed,
+            content.danmakuEnabled,
+            content.directMediaUrl
+        ).joinToString(separator = ":")
+        val duplicate = lastLaunch?.let { it.key == key && now - it.atMillis < DUPLICATE_LAUNCH_WINDOW_MS } == true
+        if (!duplicate) lastLaunch = LastLaunch(key, now)
+        return duplicate
+    }
+
+    private data class ResolvedVideo(
+        val aid: Long,
+        val cid: Long,
+        val epid: Int?,
+        val seasonId: Int?,
+        val title: String,
+        val partTitle: String
+    )
+
+    private data class LastLaunch(
+        val key: String,
+        val atMillis: Long
+    )
+
+    class Dependencies(
+        val videoDetailRepository: () -> VideoDetailRepository = { getKoin().get() },
+        val piliPlusResolver: () -> PiliPlusUgcCastResolver = {
+            PiliPlusUgcCastResolver(
+                searchRepository = getKoin().get<SearchRepository>(),
+                videoDetailRepository = getKoin().get(),
+                preferApiType = { Prefs.recommendationApiType.toRequestApiType() },
+                enableProxy = { Prefs.enableProxy }
+            )
+        },
+        val enablePiliPlusCastCompat: () -> Boolean = { Prefs.enablePiliPlusCastCompat },
+        val pauseCurrentPlayback: () -> Unit = { CastPlaybackSessionRegistry.pauseCurrent() },
+        val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
+        val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+        val elapsedRealtime: () -> Long = { SystemClock.elapsedRealtime() }
+    )
+
+    private companion object {
+        const val DUPLICATE_LAUNCH_WINDOW_MS = 2_000L
+    }
+}
+
+internal fun Int?.toPlayedMillis(): Int =
+    ((this ?: 0).coerceAtLeast(0).toLong() * 1000L)
+        .coerceAtMost(Int.MAX_VALUE.toLong())
+        .toInt()

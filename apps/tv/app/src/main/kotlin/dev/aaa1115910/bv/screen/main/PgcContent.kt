@@ -1,0 +1,165 @@
+package dev.aaa1115910.bv.screen.main
+
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.unit.dp
+import dev.aaa1115910.bv.component.PgcTopNavItem
+import dev.aaa1115910.bv.component.TopNav
+import dev.aaa1115910.bv.screen.main.pgc.AnimeContent
+import dev.aaa1115910.bv.screen.main.pgc.CinemaContent
+import dev.aaa1115910.bv.screen.main.pgc.DocumentaryContent
+import dev.aaa1115910.bv.screen.main.pgc.GuoChuangContent
+import dev.aaa1115910.bv.screen.main.pgc.MovieContent
+import dev.aaa1115910.bv.screen.main.pgc.TvContent
+import dev.aaa1115910.bv.screen.main.pgc.VarietyContent
+import dev.aaa1115910.bv.util.LayoutConfig
+import dev.aaa1115910.bv.viewmodel.pgc.PgcAnimeViewModel
+import dev.aaa1115910.bv.viewmodel.pgc.PgcCinemaViewModel
+import dev.aaa1115910.bv.viewmodel.pgc.PgcDocumentaryViewModel
+import dev.aaa1115910.bv.viewmodel.pgc.PgcGuoChuangViewModel
+import dev.aaa1115910.bv.viewmodel.pgc.PgcMovieViewModel
+import dev.aaa1115910.bv.viewmodel.pgc.PgcTvViewModel
+import dev.aaa1115910.bv.viewmodel.pgc.PgcVarietyViewModel
+import org.koin.androidx.compose.koinViewModel
+
+@Composable
+fun PgcContent(
+    navFocusRequester: FocusRequester,
+    pgcCinemaViewModel: PgcCinemaViewModel = koinViewModel(),
+    pgcAnimeViewModel: PgcAnimeViewModel = koinViewModel(),
+    pgcGuoChuangViewModel: PgcGuoChuangViewModel = koinViewModel(),
+    pgcMovieViewModel: PgcMovieViewModel = koinViewModel(),
+    pgcDocumentaryViewModel: PgcDocumentaryViewModel = koinViewModel(),
+    pgcTvViewModel: PgcTvViewModel = koinViewModel(),
+    pgcVarietyViewModel: PgcVarietyViewModel = koinViewModel()
+) {
+    val cinemaState = rememberLazyListState()
+    val animeState = rememberLazyListState()
+    val guoChuangState = rememberLazyListState()
+    val movieState = rememberLazyListState()
+    val documentaryState = rememberLazyListState()
+    val tvState = rememberLazyListState()
+    val varietyState = rememberLazyListState()
+
+    val pgcTopNavItems = remember { LayoutConfig.applyPgc(PgcTopNavItem.entries) }
+    var selectedTab by remember { mutableStateOf(pgcTopNavItems.firstOrNull() ?: PgcTopNavItem.Cinema) }
+    var focusOnContent by remember { mutableStateOf(false) }
+
+    LaunchedEffect(pgcTopNavItems, selectedTab) {
+        if (selectedTab !in pgcTopNavItems) {
+            selectedTab = pgcTopNavItems.firstOrNull() ?: PgcTopNavItem.Cinema
+        }
+    }
+    val currentListOnTop by remember {
+        derivedStateOf {
+            with(
+                when (selectedTab) {
+                    PgcTopNavItem.Cinema -> cinemaState
+                    PgcTopNavItem.Anime -> animeState
+                    PgcTopNavItem.GuoChuang -> guoChuangState
+                    PgcTopNavItem.Movie -> movieState
+                    PgcTopNavItem.Documentary -> documentaryState
+                    PgcTopNavItem.Tv -> tvState
+                    PgcTopNavItem.Variety -> varietyState
+                }
+            ) {
+                firstVisibleItemIndex == 0 && firstVisibleItemScrollOffset == 0
+            }
+        }
+    }
+
+    //启动时刷新数据
+    LaunchedEffect(Unit) {
+
+    }
+
+    Scaffold(
+        modifier = Modifier,
+        topBar = {
+            TopNav(
+                modifier = Modifier
+                    .focusRequester(navFocusRequester)
+                    .padding(end = 80.dp),
+                items = pgcTopNavItems,
+                isLargePadding = !focusOnContent && currentListOnTop,
+                onSelectedChanged = { nav ->
+                    selectedTab = nav as PgcTopNavItem
+                },
+                onClick = { nav ->
+                    when (nav) {
+                        PgcTopNavItem.Cinema -> pgcCinemaViewModel.reloadAll()
+                        PgcTopNavItem.Anime -> pgcAnimeViewModel.reloadAll()
+                        PgcTopNavItem.GuoChuang -> pgcGuoChuangViewModel.reloadAll()
+                        PgcTopNavItem.Movie -> pgcMovieViewModel.reloadAll()
+                        PgcTopNavItem.Documentary -> pgcDocumentaryViewModel.reloadAll()
+                        PgcTopNavItem.Tv -> pgcTvViewModel.reloadAll()
+                        PgcTopNavItem.Variety -> pgcVarietyViewModel.reloadAll()
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .padding(innerPadding)
+                .onFocusChanged { focusOnContent = it.hasFocus }
+                .onPreviewKeyEvent {
+                    if (it.key == Key.Menu) {
+                        if (it.type == KeyEventType.KeyDown) return@onPreviewKeyEvent true
+                        navFocusRequester.requestFocus()
+                        return@onPreviewKeyEvent true
+                    }
+                    return@onPreviewKeyEvent false
+                }
+        ) {
+            AnimatedContent(
+                targetState = selectedTab,
+                label = "pgc animated content",
+                transitionSpec = {
+                    val coefficient = 10
+                    if (targetState.ordinal < initialState.ordinal) {
+                        fadeIn() + slideInHorizontally { -it / coefficient } togetherWith
+                                fadeOut() + slideOutHorizontally { it / coefficient }
+                    } else {
+                        fadeIn() + slideInHorizontally { it / coefficient } togetherWith
+                                fadeOut() + slideOutHorizontally { -it / coefficient }
+                    }
+                }
+            ) { screen ->
+                when (screen) {
+                    PgcTopNavItem.Cinema -> CinemaContent(lazyListState = cinemaState)
+                    PgcTopNavItem.Anime -> AnimeContent(lazyListState = animeState)
+                    PgcTopNavItem.GuoChuang -> GuoChuangContent(lazyListState = guoChuangState)
+                    PgcTopNavItem.Movie -> MovieContent(lazyListState = movieState)
+                    PgcTopNavItem.Documentary -> DocumentaryContent(lazyListState = documentaryState)
+                    PgcTopNavItem.Tv -> TvContent(lazyListState = tvState)
+                    PgcTopNavItem.Variety -> VarietyContent(lazyListState = varietyState)
+                }
+            }
+        }
+    }
+}

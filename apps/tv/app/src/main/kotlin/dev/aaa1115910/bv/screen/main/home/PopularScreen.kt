@@ -1,0 +1,224 @@
+package dev.aaa1115910.bv.screen.main.home
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.tv.material3.Text
+import dev.aaa1115910.biliapi.entity.ugc.UgcItem
+import dev.aaa1115910.bv.BVApp
+import dev.aaa1115910.bv.activities.video.UpInfoActivity
+import dev.aaa1115910.bv.activities.video.VideoInfoActivity
+import dev.aaa1115910.bv.component.FilterChip
+import dev.aaa1115910.bv.component.FilterChipDefaults
+import dev.aaa1115910.bv.component.LoadingTip
+import dev.aaa1115910.bv.component.SelectableItemPopup
+import dev.aaa1115910.bv.component.TvLazyVerticalGrid
+import dev.aaa1115910.bv.component.videocard.SmallVideoCard
+import dev.aaa1115910.bv.entity.carddata.VideoCardData
+import dev.aaa1115910.bv.repository.JumpModeRepository
+import dev.aaa1115910.bv.repository.JumpModeSource
+import dev.aaa1115910.bv.repository.toJumpModeItems
+import dev.aaa1115910.bv.ui.effect.UiEffect
+import dev.aaa1115910.bv.util.formatHourMinSec
+import dev.aaa1115910.bv.util.rememberAdaptiveGridCells
+import dev.aaa1115910.bv.util.toWanString
+import dev.aaa1115910.bv.util.toast
+import dev.aaa1115910.bv.viewmodel.home.PopularRankCategory
+import dev.aaa1115910.bv.viewmodel.home.PopularViewModel
+import dev.aaa1115910.bv.viewmodel.user.ToViewViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.launch
+import org.koin.androidx.compose.koinViewModel
+
+@Composable
+fun PopularScreen(
+    modifier: Modifier = Modifier,
+    popularViewModel: PopularViewModel = koinViewModel(),
+    toViewViewModel: ToViewViewModel = koinViewModel()
+) {
+    val gridState = rememberLazyGridState()
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val jumpModeRepository = remember { BVApp.koinApplication.koin.get<JumpModeRepository>() }
+    var showCategoryPopup by remember { mutableStateOf(false) }
+
+    val onClickVideo: (UgcItem) -> Unit = { ugcItem ->
+        jumpModeRepository.setPendingQueue(
+            source = JumpModeSource.Home,
+            selectedAid = ugcItem.aid,
+            items = popularViewModel.popularVideoList.toJumpModeItems()
+        )
+        VideoInfoActivity.actionStart(context, ugcItem.aid)
+    }
+
+    LaunchedEffect(Unit) {
+        toViewViewModel.uiEvent.collect { event ->
+            when (event) {
+                is UiEffect.ShowToast -> {
+                    event.message.toast(context)
+                }
+            }
+        }
+    }
+
+    // 监听可见区最后一个 item 的 index，距离尾部 20 个就翻页
+    LaunchedEffect(gridState) {
+        snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+            .distinctUntilChanged()
+            .filter { index ->
+                index != null && index >= popularViewModel.popularVideoList.size - 20
+            }
+            .collect {
+                scope.launch(Dispatchers.IO) {
+                    popularViewModel.loadMore()
+                }
+            }
+    }
+
+    TvLazyVerticalGrid(
+        modifier = modifier,
+        state = gridState,
+        columns = rememberAdaptiveGridCells(defaultColumns = 4),
+        contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            PopularCategoryRow(
+                selectedCategory = popularViewModel.selectedCategory,
+                onShowSelector = { showCategoryPopup = true },
+                onSelect = { category ->
+                    scope.launch(Dispatchers.IO) {
+                        popularViewModel.selectCategory(category)
+                        popularViewModel.loadMore()
+                    }
+                }
+            )
+        }
+
+        itemsIndexed(
+            items = popularViewModel.popularVideoList,
+            key = { index, _ -> index }
+        ) { _, item ->
+            SmallVideoCard(
+                data = remember(item) {         // `VideoCardData` 只在 item 变动时重建
+                    VideoCardData(
+                        avid = item.aid,
+                        title = item.title,
+                        cover = item.cover,
+                        playString = item.play.takeIf { it != -1 }.toWanString(),
+                        danmakuString = item.danmaku.takeIf { it != -1 }.toWanString(),
+                        timeString = (item.duration * 1000L).formatHourMinSec(),
+                        upName = item.author,
+                        pubTime = item.pubTime
+                    )
+                },
+                onClick = { onClickVideo(item) },
+                onAddWatchLater = {
+                    toViewViewModel.addToView(item.aid)
+                },
+                onGoToDetailPage = {
+                    jumpModeRepository.setPendingQueue(
+                        source = JumpModeSource.Home,
+                        selectedAid = item.aid,
+                        items = popularViewModel.popularVideoList.toJumpModeItems()
+                    )
+                    VideoInfoActivity.actionStart(
+                        context = context,
+                        fromController = true,
+                        aid = item.aid
+                    )
+                },
+                onGoToUpPage = if (item.authorMid != null && item.authorMid != 0L) {
+                    { UpInfoActivity.actionStart(context, item.authorMid!!, item.author) }
+                } else null
+            )
+        }
+
+        if (popularViewModel.loading) {
+            item(span = { GridItemSpan(maxLineSpan) }) {    // 网格里占整行
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) { LoadingTip() }
+            }
+        } else {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Text(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                    text = "没有更多了捏",
+                    color = Color.White
+                )
+            }
+        }
+    }
+
+    SelectableItemPopup(
+        show = showCategoryPopup,
+        title = "选择热门分区",
+        items = PopularRankCategory.entries,
+        selectedItem = popularViewModel.selectedCategory,
+        label = { it.displayName },
+        onDismiss = { showCategoryPopup = false },
+        onSelect = { category ->
+            scope.launch(Dispatchers.IO) {
+                popularViewModel.selectCategory(category)
+                popularViewModel.loadMore()
+            }
+        }
+    )
+}
+
+@Composable
+private fun PopularCategoryRow(
+    selectedCategory: PopularRankCategory,
+    onShowSelector: () -> Unit,
+    onSelect: (PopularRankCategory) -> Unit
+) {
+    LazyRow(
+        contentPadding = FilterChipDefaults.RowContentPadding,
+        horizontalArrangement = Arrangement.spacedBy(FilterChipDefaults.RowSpacing)
+    ) {
+        item {
+            FilterChip(
+                text = selectedCategory.displayName,
+                icon = Icons.Rounded.Tune,
+                maxWidth = FilterChipDefaults.SelectorMaxWidth,
+                onClick = onShowSelector
+            )
+        }
+        items(PopularRankCategory.entries, key = { it.name }) { category ->
+            val selectCategory = { onSelect(category) }
+            FilterChip(
+                text = category.displayName,
+                onClick = selectCategory
+            )
+        }
+    }
+}

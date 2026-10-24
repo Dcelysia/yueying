@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.wifi"
+        android:required="false" />
+
+    <queries>
+        <package android:name="tw.com.gamer.android.animad" />
+    </queries>
+
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+
+    <application
+        android:name=".BVApp"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.BV"
+        tools:ignore="UnusedAttribute">
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="firebase_analytics_collection_deactivated"
+            android:value="false" />
+        <meta-data
+            android:name="firebase_crashlytics_collection_enabled"
+            android:value="false" />
+
+        <receiver
+            android:name=".cast.CastBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".cast.TvStartupService"
+            android:label="开机自启与 ADB 保持"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".cast.CastReceiverService"
+            android:foregroundServiceType="connectedDevice"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.user.UserLockSettingsActivity"
+            android:exported="true"
+            android:label="@string/title_activity_user_lock_settings"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.settings.LogsActivity"
+            android:exported="false"
+            android:label="@string/title_activity_logs"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.user.UserSwitchActivity"
+            android:exported="true"
+            android:label="@string/title_activity_user_switch"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.settings.MediaCodecActivity"
+            android:exported="true"
+            android:label="@string/title_activity_media_codec"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.video.VideoPlayerV3Activity"
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:exported="true"
+            android:label="@string/title_activity_video_player_v3"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="www.bilibili.com"
+                    android:pathPrefix="/bangumi/play/"
+                    android:scheme="https" />
+                <data
+                    android:host="m.bilibili.com"
+                    android:pathPrefix="/bangumi/play/"
+                    android:scheme="https" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".activities.video.TagActivity"
+            android:exported="false"
+            android:label="@string/title_activity_tag"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.pgc.PgcIndexActivity"
+            android:exported="false"
+            android:label="@string/title_activity_pgc_index"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.pgc.PgcCinemaTopicActivity"
+            android:exported="false"
+            android:label="影视专题"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.pgc.PgcRankActivity"
+            android:exported="false"
+            android:label="排行榜"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.user.FollowingSeasonActivity"
+            android:exported="false"
+            android:label="@string/title_activity_following_season"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.pgc.anime.AnimeTimelineActivity"
+            android:exported="false"
+            android:label="@string/title_activity_anime_timeline"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.search.SearchResultActivity"
+            android:exported="false"
+            android:label="@string/title_activity_search_result"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.search.SearchInputActivity"
+            android:exported="false"
+            android:label="@string/title_activity_search_input"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.user.FollowActivity"
+            android:exported="false"
+            android:label="@string/title_activity_follow"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.video.SeasonInfoActivity"
+            android:exported="false"
+            android:label="@string/title_activity_season_info"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.settings.SpeedTestActivity"
+            android:exported="false"
+            android:label="@string/title_activity_speed_test"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.video.UpInfoActivity"
+            android:exported="false"
+            android:label="@string/title_activity_up_info"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.settings.SettingsActivity"
+            android:exported="false"
+            android:label="@string/title_activity_settings"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.user.LoginActivity"
+            android:exported="false"
+            android:label="@string/title_activity_login"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.video.VideoInfoActivity"
+            android:exported="false"
+            android:label="@string/title_activity_video_info"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.live.LivePlayerActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:exported="false"
+            android:label="直播"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV" />
+        <activity
+            android:name=".activities.MainActivity"
+            android:launchMode="singleTask"
+            android:banner="@drawable/ic_banner"
+            android:exported="true"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.BV.Splash">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/provider_paths" />
+        </provider>
+    </application>
+
+</manifest>
