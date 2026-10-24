@@ -4,7 +4,7 @@ oh_modules/
 node_modules/
 .idea/
 local.properties
-build-profile.json5
+/build-profile.json5
 release-metadata.json
 *.hap
 *.app
