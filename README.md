@@ -1,16 +1,16 @@
-<p align="center"><img src="ohos-poc/assets/branding/yueying-icon.png" width="88" alt="跃映图标"></p>
+<p align="center"><img src="docs/branding/yueying-icon.png" width="88" alt="跃映图标"></p>
 <h1 align="center">跃映 · Yueying</h1>
 <p align="center">手机选视频，电视独立播放。支持 Android 手机、HarmonyOS 手机与 Android TV。</p>
-<p align="center"><img alt="Android 手机与电视" src="https://img.shields.io/badge/Android-Phone%20%2B%20TV-3DDC84?logo=android&amp;logoColor=white"> <img alt="HarmonyOS 预览版" src="https://img.shields.io/badge/HarmonyOS-Preview-E34F5F"></p>
+<p align="center"><img alt="Android 手机与电视" src="https://img.shields.io/badge/Android-Phone%20%2B%20TV-3DDC84?logo=android&amp;logoColor=white"> <img alt="HarmonyOS 原生版" src="https://img.shields.io/badge/HarmonyOS-ArkTS%20%2B%20ArkUI-E34F5F"></p>
 <p align="center">
   <a href="docs/setup.md">安装与搭建</a> · <a href="docs/ai-setup.md">交给 AI 搭建</a> · <a href="docs/harmonyos-release.md">鸿蒙邀测准备</a> · <a href="https://github.com/Dcelysia/yueying/releases">构建与发行</a>
 </p>
 
 跃映是基于开源项目二次开发的家庭视频浏览与电视控制客户端。手机发送所选视频编号和控制命令，电视使用自己的 B站登录态获取视频、播放弹幕；视频流直接到电视，手机不镜像屏幕，也不中转媒体流。
 
-**上游权益与项目身份：** Android 手机基于 [PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus)（[GPL-3.0](apps/mobile/LICENSE)），电视基于 [NeoBV](https://github.com/b1ackmarket/NeoBV)（[MIT](apps/tv/LICENSE)）。**dcelysia 是本改版维护者，并非全部原始代码的作者。** 原版权头、署名、LICENSE 与 AUTHORS 均保留；其他组件适用各自许可证，见[开源说明](ohos-poc/assets/legal/NOTICE.md)和[固定来源记录](sources.lock.json)。本项目独立开发，与哔哩哔哩官方无关，开源许可不授予其内容、接口或商标授权。
+**上游权益与项目身份：** Android 手机基于 [PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus)（[GPL-3.0](apps/mobile/LICENSE)），电视基于 [NeoBV](https://github.com/b1ackmarket/NeoBV)（[MIT](apps/tv/LICENSE)）。**dcelysia 是本改版维护者，并非全部原始代码的作者。** 原版权头、署名、LICENSE 与 AUTHORS 均保留；其他组件适用各自许可证，见[开源说明](apps/harmony/entry/src/main/resources/rawfile/NOTICE.md)和[固定来源记录](sources.lock.json)。本项目独立开发，与哔哩哔哩官方无关，开源许可不授予其内容、接口或商标授权。
 
-当前处于家庭测试预览阶段。鸿蒙侧尚不表示已通过华为审核或正式上架；安装包与测试状态以实际发布记录为准。
+鸿蒙端已迁移为 ArkTS / ArkUI 原生实现，当前源码版本 **1.0.2（8）**，默认包名 `com.dcelysia.yueying`。Android 手机继续使用 Flutter，电视继续使用 Android 原生实现；鸿蒙构建不再依赖 Flutter-OH。AppTest 的审核、可安装范围与状态以华为后台实际发布记录为准，源码更新不等于测试包已生效。
 
 ## 一套电视状态，多部手机接力
 
@@ -25,25 +25,11 @@
 - 支持暂停、进度、选集、音量、倍速、画质、弹幕与赞助片段跳过。具体画质、分集和可跳过片段取决于视频及电视端返回的能力。
 - 手机退出页面、锁屏或断开连接，不会停止电视。主动点击“停止电视播放”才发送停止命令。
 
-## 真实界面
+## 界面与交互
 
-以下为 2026-10-24 开发预览版的模拟器实拍，未重绘软件界面；后续构建可能调整样式。画面中的 `Bili Remote TV` 是电视接收端名称。
+鸿蒙端采用原生导航、HdsTabs、系统材质与圆角面板，保留浏览、电视占位播放器、选集、倍速、画质、弹幕与音量的操作路径。手机不播放视频；页面与图标跟随电视回传状态。
 
-<p align="center"><img src="docs/images/harmony-player.jpeg" width="260" alt="鸿蒙占位播放器与新版选集卡片"></p>
-
-| 鸿蒙全屏占位播放器 | 电视音量面板 |
-| --- | --- |
-| <img src="docs/images/harmony-fullscreen.jpeg" width="520" alt="鸿蒙全屏电视控制：进度、选集、倍速、画质、弹幕、音量和跳过"> | <img src="docs/images/harmony-volume.jpeg" width="520" alt="鸿蒙电视音量面板：显示电视音量和加减按钮"> |
-
-### 产品操作演示
-
-下面的自动预览节选了真实产品操作；完整视频约 52 秒，可直接在 GitHub 页面内点播。
-
-![跃映真实产品操作自动预览](docs/videos/product-preview.gif)
-
-https://github.com/user-attachments/assets/0801407f-f1e5-4945-9c4e-27a20b772261
-
-演示展示 B 从首页进入电视已有播放、A 切片后 B 标题同步，以及 B 全屏调节音量、进度和播放状态。每个片段的手机与电视来自同一录制时段；已剪去等待，A 画面未录制，没有合成 UI 或运动补帧。不是帧率、延迟或零掉帧证明。来源与采集边界见[素材说明](docs/images/README.md)及[视频说明](docs/videos/README.md)。
+原生源码与构建方法见 [`apps/harmony`](apps/harmony)。源码内的本地演示插画是本项目生成的界面素材，不代表真实账号数据、第三方内容授权或性能测试。旧 Flutter 鸿蒙版的[截图](docs/images/README.md)与[操作录像](docs/videos/README.md)仅作为历史记录，不用于展示当前原生版本。
 
 ## 开始使用
 
@@ -63,13 +49,13 @@ python3 scripts/build-apks.py --only mobile
 python3 scripts/build-apks.py --only tv --tv-build-type release
 ```
 
-Android 构建需要 Python 3.11+、Android SDK 和 JDK 17；仓库固定 Flutter 3.47.7 / Dart 3.13.5，包含 PiliPlus 配套补丁。鸿蒙单独使用 Flutter-OH，不替换 Android 的 SDK。环境、签名、模拟器和鸿蒙发布包步骤见[完整搭建说明](docs/setup.md)及[鸿蒙端说明](ohos-poc/README.md)。
+Android 构建需要 Python 3.11+、Android SDK 和 JDK 17；仓库固定 Flutter 3.47.7 / Dart 3.13.5，包含 PiliPlus 配套补丁。鸿蒙使用 DevEco Studio 26 与 HarmonyOS API 26 SDK，最低系统 HarmonyOS 7 / API 26，不需要 Flutter-OH 或其 AOT 编译器。环境、签名、模拟器和鸿蒙发布包步骤见[完整搭建说明](docs/setup.md)及[鸿蒙端说明](apps/harmony/README.md)。
 
 | 目录 | 内容 |
 | --- | --- |
 | `apps/mobile` | PiliPlus 派生 Android 手机端 |
-| `ohos-poc` | 跃映鸿蒙浏览与电视控制端，GPL-3.0 |
-| `packages/bili_remote_core` | Android / HarmonyOS 共享发现、协议和播放状态，GPL-3.0 |
+| `apps/harmony` | ArkTS / ArkUI 原生鸿蒙浏览与电视控制端，GPL-3.0 |
+| `packages/bili_remote_core` | Android 端遥控核心与协议模型；原生鸿蒙按同一协议独立实现，GPL-3.0 |
 | `apps/tv` | NeoBV 派生电视接收端及遥控服务，MIT |
 | `apps/tv/akdanmaku` | 固定版本 AkDanmaku 弹幕依赖及其原许可证 |
 | `apps/tv/libs` | 固定原生解码依赖及来源说明 |
@@ -88,8 +74,8 @@ Android 构建需要 Python 3.11+、Android SDK 和 JDK 17；仓库固定 Flutte
 
 本地开发仓库通过未 squash 的 Git subtree 保留 PiliPlus、NeoBV 和 bv-libs 上游历史；公开仓库以当前完整源码的独立安全快照发布，不携带本地或上游旧历史对象。原开发仓库及其历史仍保留，上游固定 SHA 记录在 `sources.lock.json`。
 
-分发本改版时，应提供与实际二进制对应的完整源码、本项目修改、构建说明及许可证；不能只指向上游仓库。[鸿蒙预览版对应源码](https://github.com/Dcelysia/yueying/tree/harmony-v1.0.0-preview.1)。第三方原生依赖的准确来源见 [`apps/tv/libs/README.md`](apps/tv/libs/README.md)，完整版本由相应锁定文件记录。
+分发本改版时，应提供与实际二进制对应的完整源码、本项目修改、构建说明及许可证；不能只指向上游仓库。[当前原生鸿蒙源码](apps/harmony)；旧 Flutter 鸿蒙代码仍可通过历史 tag `harmony-v1.0.0-preview.1` 查看。第三方原生依赖的准确来源见 [`apps/tv/libs/README.md`](apps/tv/libs/README.md)，完整版本由相应锁定文件记录。
 
-biliMusic 为手机与电视协作方式提供了设计启发，未复制其业务代码。项目功能及可访问内容仍受第三方服务、账号权限、网络与设备能力影响。
+BiliMusic 为手机与电视协作方式以及鸿蒙系统组件用法提供了参考；上游作者及项目权利仍归原权利人。项目功能及可访问内容仍受第三方服务、账号权限、网络与设备能力影响。
 
-维护者：**dcelysia**。[隐私政策](https://dcelysia.github.io/yueying/site/privacy.html) · [用户协议](https://dcelysia.github.io/yueying/site/terms.html)。
+维护者：**dcelysia**。原生版[隐私政策模板](apps/harmony/entry/src/main/resources/rawfile/privacy-policy.md)与[用户协议模板](apps/harmony/entry/src/main/resources/rawfile/user-agreement.md)随源码提供，实际运营者资料与公开政策链接由发布者在私有构建配置中填写。功能问题或权利人反馈可通过 [GitHub Issues](https://github.com/Dcelysia/yueying/issues) 联系维护者；标注来源与“在哔哩哔哩打开”不代表获得平台授权。

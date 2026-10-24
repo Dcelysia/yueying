@@ -79,57 +79,21 @@ Apple Silicon Mac 还需要 Xcode 命令行工具，以及 Homebrew 的 `protobu
 
 常见输出：`dist/bili-remote-mobile.apk`、`dist/bili-remote-tv-release.apk`，以及脚本生成的构建清单。以本次脚本的实际输出和 SHA-256 为准。
 
-## 6. HarmonyOS 源码环境
+## 6. HarmonyOS 原生源码环境
 
-安装 DevEco Studio 及所需 HarmonyOS SDK，按本人决定阅读并接受相应协议。使用独立 Flutter-OH SDK，保留 Android 的 `toolchains/flutter`：
-
-```sh
-python3 scripts/setup-flutter-ohos.py
-```
-
-本项目当前基线 Flutter-OH 3.41.9+ohos-1.0.2 / Dart 3.11.5。脚本默认安装到 `~/development/flutter-ohos`；需要自定义位置时使用 `FLUTTER_OHOS_HOME`。不要让该目录覆盖已有其他 SDK。
-
-Apple Silicon 的 release 构建还需要 Rosetta：本项目锁定的 Flutter-OH 3.41.9+ohos-1.0.2 中，`ohos-arm64-release/darwin-x64/gen_snapshot` 是 x86_64 可执行文件。2026-10-24 的正式 APP 构建曾因此报 `Bad CPU type in executable`；安装 Rosetta 后，同一引擎与源码构建通过。
-
-若本机尚未安装，由使用者运行普通交互命令、阅读并确认 Apple 许可：
+安装 DevEco Studio 26 与 HarmonyOS 7 / API 26 SDK，阅读并自行接受相应协议。打开原生项目 `apps/harmony/`，不再安装 Flutter-OH；Android 保留自己的 Flutter SDK。
 
 ```sh
-softwareupdate --install-rosetta
+cp apps/harmony/build-profile.example.json5 apps/harmony/build-profile.json5
 ```
 
-AI 搭建工具不得默认追加 `--agree-to-license` 代为接受许可。不要从其他 Flutter 或引擎版本拷贝 `gen_snapshot` 替换来绕过此错误，快照工具必须与本项目锁定的引擎匹配。
+在 DevEco 的 Signing Configs 中设置自己的开发签名与设备，确保 product 的 `signingConfig` 关联正确。活动配置、私钥和设备授权资料不入 Git。真机运行应安装 `*-signed.hap`；`*-unsigned.hap` 不能代替已签名开发包。AppTest 使用市场发布签名，原包升级必须保持同一应用身份。
 
-首次检出且尚无本机签名配置时，将 `ohos-poc/ohos/build-profile.example.json5` 复制为 `ohos-poc/ohos/build-profile.json5`。在 DevEco Studio 打开鸿蒙工程，配置自己的设备、调试证书和 Profile；使用自己的签名材料，不能复用维护者未公开的文件。活动签名配置不入 Git。
-
-macOS 的开发构建示例：
-
-```sh
-cd ohos-poc
-HOS_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk \
-NODE_HOME=/Applications/DevEco-Studio.app/Contents/tools/node \
-~/development/flutter-ohos/bin/flutter pub get
-
-HOS_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk \
-NODE_HOME=/Applications/DevEco-Studio.app/Contents/tools/node \
-~/development/flutter-ohos/bin/flutter build hap --debug --no-pub --target-platform ohos-arm64
-```
-
-安装调试 HAP 的实际设备必须在签名 Profile 支持范围内；使用 DevEco 运行/安装。模拟器跑通不代表家庭真机上的自动发现、后台重连或硬件性能已验证。
-
-正式发布前，必须把开发包标识改成本人在华为开发者中心登记的实际 `bundleName`，配置发布签名，核对 本机 `.private/harmonyos-signing/release-metadata.json` 的发布信息。可先使用本项目发布预检：
-
-```sh
-python3 scripts/build-harmonyos.py \
-  --config .private/harmonyos-signing/release-metadata.json \
-  --bundle-name 你登记的实际包名 \
-  --check-only
-```
-
-他人 fork 应改为自己的运营者、联系邮箱、对应源码及政策地址；不要沿用维护者公开信息冒充同一运营者。预检通过后去掉 `--check-only` 才实际构建 release APP；开发包标识或签名未完成时，应先处理具体缺项。
+正式发布资料、原生 APP 构建与校验见[鸿蒙发布说明](harmonyos-release.md)。默认包名 `com.dcelysia.yueying`，版本 1.0.2（8），最低 API 26；fork 应使用自己的应用身份及真实资料，不冒用原维护者身份。源码更新、构建成功均不等于测试版本已获审。
 
 ## 7. 模拟器联调边界
 
-Android 与鸿蒙模拟器可能不在同一广播网络。联调可以用开发工具转发控制端口，再手动连接；端口转发不用于证明真实 Wi-Fi 自动发现成功。具体例子见[鸿蒙端 README](../ohos-poc/README.md#模拟器联调)。
+Android 与鸿蒙模拟器可能不在同一广播网络。联调可以用开发工具转发控制端口，再手动连接；端口转发不用于证明真实 Wi-Fi 自动发现成功。具体例子见[鸿蒙端 README](../apps/harmony/README.md#模拟器联调)。
 
 至少记录：双方实际版本、连接方式、是否真正播放、A/B 切换与同步结果、断线和返回行为。不要把 HTTP 响应正常、截图或构建成功写成所有功能都通过。
 
