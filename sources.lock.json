@@ -35,5 +35,13 @@
     "version": "1.0.2",
     "path": "apps/tv/akdanmaku",
     "patches": "README.md"
+  },
+  "HarmonyOSNative": {
+    "path": "apps/harmony",
+    "implementation": "ArkTS / ArkUI / UIDesignKit",
+    "minApi": 26,
+    "versionName": "1.0.2",
+    "versionCode": 8,
+    "migratedFrom": "harmony-native branch and prior Yueying/PiliPlus-derived behavior"
   }
 }

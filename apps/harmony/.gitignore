@@ -1,0 +1,13 @@
+build/
+.hvigor/
+oh_modules/
+node_modules/
+.idea/
+local.properties
+/build-profile.json5
+release-metadata.json
+*.hap
+*.app
+*.p12
+*.p7b
+*.cer

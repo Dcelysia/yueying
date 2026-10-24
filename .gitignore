@@ -10,4 +10,11 @@ __pycache__/
 **/signing.properties
 /.private/
 /.hvigor/
-/ohos-poc/release-metadata.json
+/apps/harmony/release-metadata.json
+
+**/.idea/
+*.p12
+*.p7b
+*.cer
+*.hap
+*.app
