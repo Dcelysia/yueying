@@ -1,3 +1,4 @@
+import { common } from '@kit.AbilityKit';
 import { PagedItems } from './PagedItems';
 import { BiliClient, Account, FavoriteFolder, Creator } from '../services/BiliClient';
 
@@ -8,39 +9,95 @@ export struct LoginPane {
   @State qrUrl: string = '';
   @State message: string = '正在生成登录二维码…';
   @State busy: boolean = false;
+  @State verifying: boolean = false;
+  @State needsVerification: boolean = false;
+  @State canRetry: boolean = false;
   private generation: number = 0;
   private timer: number = -1;
   private active: boolean = false;
-  aboutToAppear(): void { this.active = true; this.generate(); }
-  aboutToDisappear(): void { this.active = false; ++this.generation; clearTimeout(this.timer); }
+  private foreground: boolean = true;
+  private polling: boolean = false;
+  private qrKey: string = '';
+  private expiresAt: number = 0;
+  private failures: number = 0;
+  private readonly foregroundListener = (foreground: boolean): void => {
+    this.foreground = foreground; clearTimeout(this.timer);
+    if (!foreground || !this.active) return;
+    if (this.api.account) this.onComplete();
+    else if (this.api.hasLoginCredentials) this.verifySavedLogin();
+    else if (this.qrKey) this.poll(this.generation);
+  };
+  aboutToAppear(): void {
+    this.active = true;
+    (this.getUIContext().getHostContext() as common.UIAbilityContext).eventHub.on('foreground', this.foregroundListener);
+    this.api.onLoginProgress = (message: string) => { if (this.active) this.message = message; };
+    if (this.api.hasLoginCredentials) { this.needsVerification = true; this.verifySavedLogin(); }
+    else this.generate();
+  }
+  aboutToDisappear(): void {
+    this.active = false; ++this.generation; clearTimeout(this.timer); this.api.onLoginProgress = () => {};
+    (this.getUIContext().getHostContext() as common.UIAbilityContext).eventHub.off('foreground', this.foregroundListener);
+  }
+  private safeError(error: Error): string {
+    return /https?:\/\/|qrcode_key|SESSDATA|bili_jct/i.test(error.message) ? '网络请求失败，请检查网络后重试' : error.message || '登录请求失败，请重试';
+  }
   private async generate(): Promise<void> {
-    if (this.busy) return;
-    const generation = ++this.generation; clearTimeout(this.timer); this.busy = true; this.qrUrl = ''; this.message = '正在生成登录二维码…';
+    if (this.busy || this.verifying) return;
+    const generation = ++this.generation; clearTimeout(this.timer); this.busy = true;
+    this.qrUrl = ''; this.qrKey = ''; this.failures = 0; this.needsVerification = false; this.canRetry = false; this.message = '正在生成登录二维码…';
     try {
       const qr = await this.api.createQr();
       if (!this.active || generation !== this.generation) return;
-      this.qrUrl = qr.url; this.message = '使用 B站 App 扫码登录'; this.poll(qr.qrcode_key, generation);
-    } catch (error) { if (this.active && generation === this.generation) this.message = (error as Error).message; }
+      this.qrUrl = qr.url; this.qrKey = qr.qrcode_key; this.expiresAt = Date.now() + 180000;
+      this.message = '使用 B站 App 扫码并确认登录'; this.poll(generation);
+    } catch (error) { if (this.active && generation === this.generation) this.message = this.safeError(error as Error); }
     finally { if (this.active && generation === this.generation) this.busy = false; }
   }
-  private async poll(key: string, generation: number): Promise<void> {
-    if (!this.active || generation !== this.generation) return;
+  private async verifySavedLogin(): Promise<void> {
+    if (!this.active || !this.foreground || this.verifying || this.polling) return;
+    const generation = this.generation; this.needsVerification = true; this.verifying = true; this.canRetry = false; this.message = '正在验证 B站账号…';
     try {
-      const code = await this.api.pollQr(key, () => this.active && generation === this.generation);
+      await this.api.verifyLogin();
+      if (this.active && generation === this.generation) { this.message = '登录成功'; if (this.foreground) this.onComplete(); }
+    } catch (error) { if (this.active && generation === this.generation) { this.message = this.safeError(error as Error); this.canRetry = true; } }
+    finally { if (this.active && generation === this.generation) this.verifying = false; }
+  }
+  private async poll(generation: number): Promise<void> {
+    if (!this.active || !this.foreground || generation !== this.generation || this.polling || !this.qrKey) return;
+    if (Date.now() >= this.expiresAt) { this.message = '二维码已过期，请刷新'; return; }
+    this.polling = true; this.canRetry = false;
+    try {
+      const code = await this.api.pollQr(this.qrKey, () => this.active && generation === this.generation);
       if (!this.active || generation !== this.generation) return;
-      if (code === 0) { this.message = '登录成功'; this.onComplete(); return; }
+      this.failures = 0;
+      if (code === 0) { this.message = '登录成功'; if (this.foreground) this.onComplete(); return; }
       if (code === 86038) { this.message = '二维码已过期，请刷新'; return; }
-      this.message = code === 86090 ? '已扫码，请在 B站确认' : '使用 B站 App 扫码登录';
-      this.timer = setTimeout(() => { this.poll(key, generation); }, 2000);
-    } catch (error) { if (this.active && generation === this.generation) this.message = (error as Error).message; }
+      if (code !== 86090 && code !== 86101) { this.message = `登录状态已变化（${code}），请刷新二维码`; return; }
+      this.message = code === 86090 ? '已扫码，请在 B站确认登录' : '使用 B站 App 扫码并确认登录';
+      if (this.foreground) this.timer = setTimeout(() => { this.poll(generation); }, 2000);
+    } catch (error) {
+      if (!this.active || generation !== this.generation) return;
+      this.message = this.safeError(error as Error); this.needsVerification = this.api.hasLoginCredentials;
+      if (this.needsVerification) this.canRetry = true;
+      else if (++this.failures <= 2 && this.foreground) this.timer = setTimeout(() => { this.poll(generation); }, 2000);
+      else this.canRetry = true;
+    } finally {
+      this.polling = false;
+      // A refresh can replace the QR while an older HTTP request is finishing.
+      if (this.active && this.foreground && generation !== this.generation && this.qrKey) this.poll(this.generation);
+    }
   }
   build() {
     Column({ space: 24 }) {
       Text('登录 B站账号').fontSize(24).fontWeight(FontWeight.Bold)
       if (this.qrUrl) { QRCode(this.qrUrl).width(220).height(220).color('#191919').backgroundColor('#FFFFFF') }
-      else if (this.busy) { LoadingProgress().width(40).height(40) }
-      Text(this.message).fontSize(15).fontColor('#666666')
-      Button('刷新二维码').fontColor('#FFFFFF').backgroundColor('#D8353F').enabled(!this.busy).onClick(() => { this.generate(); })
+      else if (this.busy || this.verifying) { LoadingProgress().width(40).height(40) }
+      Text(this.message).fontSize(15).fontColor('#666666').textAlign(TextAlign.Center)
+      if (this.needsVerification || this.canRetry) {
+        Button(this.verifying ? '正在验证…' : this.needsVerification ? '重试登录验证' : '继续检查登录').fontColor('#FFFFFF').backgroundColor('#D8353F').enabled(!this.verifying)
+          .onClick(() => { if (this.needsVerification) this.verifySavedLogin(); else { this.failures = 0; this.poll(this.generation); } })
+      }
+      Button('刷新二维码').fontColor('#D8353F').backgroundColor('#FFF0F2').enabled(!this.busy && !this.verifying).onClick(() => { this.generate(); })
       if (this.api.demoAvailable) {
         Button('使用演示账号（假数据）').fontColor('#D8353F').backgroundColor('#FFF0F2').onClick(() => {
           this.active = false; ++this.generation; clearTimeout(this.timer); this.api.enableDemo(); this.onComplete();

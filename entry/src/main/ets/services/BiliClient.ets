@@ -67,6 +67,8 @@ export class BiliClient {
   private accountBeforeDemo?: Account;
   demoAvailable: boolean = false;
   account?: Account;
+  get hasLoginCredentials(): boolean { return /(?:^|;\s*)SESSDATA=/.test(this.accountCookies); }
+  onLoginProgress: (message: string) => void = () => {};
   onAccountChanged: () => void = () => {};
   async initialize(context: common.UIAbilityContext): Promise<void> {
     this.demoAvailable = context.applicationInfo.name === 'com.dcelysia.yueying.nativepreview';
@@ -113,9 +115,9 @@ export class BiliClient {
     const client = http.createHttp();
     try {
       const response = await client.request(`https://${passport ? 'passport.bilibili.com' : 'api.bilibili.com'}${path}?${query}`, {
-        method: http.RequestMethod.GET, maxRedirects: 0, connectTimeout: 10000, readTimeout: 15000,
+        method: http.RequestMethod.GET, usingCache: false, maxRedirects: 0, connectTimeout: 10000, readTimeout: 15000,
         header: { 'User-Agent': path.startsWith('/x/space/') ? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36' : 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/124.0.0.0 Mobile Safari/537.36',
-          'Referer': path.startsWith('/x/space/') ? `https://space.bilibili.com/${params['mid'] || ''}` : 'https://www.bilibili.com/', 'Cookie': this.accountCookies + (this.accountCookies && this.anonymousCookie ? '; ' : '') + this.anonymousCookie }
+          'Cache-Control': 'no-cache', 'Referer': path.startsWith('/x/space/') ? `https://space.bilibili.com/${params['mid'] || ''}` : 'https://www.bilibili.com/', 'Cookie': this.accountCookies + (this.accountCookies && this.anonymousCookie ? '; ' : '') + this.anonymousCookie }
       });
       if (response.responseCode !== 200) throw new Error(`请求失败（HTTP ${response.responseCode}）`);
       return response;
@@ -211,20 +213,39 @@ export class BiliClient {
     if (body.code !== 0) throw new Error(body.message);
     const code = body.data.code === undefined ? -1 : body.data.code;
     if (code === 0 && isActive() && generation === this.accountGeneration) {
+      this.onLoginProgress('B站已确认，正在保存登录状态…');
       const cookies: Record<string, string> = {};
+      const cookiePattern = /(?:^|[;,\r\n])\s*(SESSDATA|bili_jct|DedeUserID|DedeUserID__ckMd5)=([^;,\r\n]+)/g;
+      const headers = response.header as Record<string, string | string[]>;
+      const rawCookies: string[] = [response.cookies || ''];
+      for (const name of Object.keys(headers)) {
+        if (name.toLowerCase() !== 'set-cookie') continue;
+        const value = headers[name];
+        if (typeof value === 'string') rawCookies.push(value);
+        else if (Array.isArray(value)) rawCookies.push(value.join('\n'));
+      }
+      for (const raw of rawCookies) {
+        cookiePattern.lastIndex = 0; let match = cookiePattern.exec(raw);
+        while (match) { cookies[match[1]] = match[2]; match = cookiePattern.exec(raw); }
+      }
       const urlPattern = /[?&](SESSDATA|bili_jct|DedeUserID|DedeUserID__ckMd5)=([^&]*)/g;
-      let match = urlPattern.exec(body.data.url || '');
-      while (match) { cookies[match[1]] = decodeURIComponent(match[2]); match = urlPattern.exec(body.data.url || ''); }
-      const cookiePattern = /(?:^|[;,\r\n]\s*)(SESSDATA|bili_jct|DedeUserID|DedeUserID__ckMd5)=([^;,\r\n]+)/g;
-      const raw = response.cookies || '';
-      match = cookiePattern.exec(raw);
-      while (match) { cookies[match[1]] = match[2]; match = cookiePattern.exec(raw); }
+      let urlMatch = urlPattern.exec(body.data.url || '');
+      while (urlMatch) {
+        if (!cookies[urlMatch[1]]) cookies[urlMatch[1]] = decodeURIComponent(urlMatch[2]);
+        urlMatch = urlPattern.exec(body.data.url || '');
+      }
       if (!cookies['SESSDATA']) throw new Error('登录凭据未返回，请重新扫码');
       this.accountCookies = Object.keys(cookies).map((name: string) => `${name}=${cookies[name]}`).join('; ');
       await this.store?.put('cookies', this.accountCookies); await this.store?.flush();
-      if (isActive() && generation === this.accountGeneration) await this.refreshAccount();
+      if (isActive() && generation === this.accountGeneration) await this.verifyLogin();
     }
     return code;
+  }
+  async verifyLogin(): Promise<void> {
+    if (!this.hasLoginCredentials) throw new Error('尚未收到登录凭据，请刷新二维码重试');
+    this.onLoginProgress('正在验证 B站账号…');
+    await this.refreshAccount();
+    if (!this.account?.isLogin) throw new Error('B站已确认，但账号验证未完成，请点“重试登录验证”');
   }
   async history(cursor: HistoryCursor): Promise<HistoryResult> {
     if (this.demoData) return { videos: cursor.max === 0 ? this.demoData.videos : [], cursor: { max: 1, view_at: 0 } };
